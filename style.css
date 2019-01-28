@@ -1,0 +1,61 @@
+body {
+	user-select: none;
+	-moz-user-select: none;
+	
+	font-family: 'Aleo', serif;
+}
+
+#container {
+	display: flex;
+}
+
+#container > div {
+	/* child divs of container */
+	margin: 10px;
+}
+
+#transparency {
+	position: absolute; /* positioned on top of editor canvas */
+	z-index: -1; /* appears below editor canvas */
+}
+
+#editor {
+	border: 1px solid black;
+}
+
+#settingWrapper {
+	border: 1px solid black;
+	padding: 10px;
+}
+
+#settingWrapper > * {
+	/* everything inside settings */
+	margin: 5px;
+}
+
+/* saved image (position in centre of screen) */
+#savedImage {
+}
+
+/* contains saved image (position in centre of screen) */
+#savedImageWrapper {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	
+	border: 1px solid black;
+	background-color: white;
+	padding: 5px;
+}
+
+/* close button for saved image */
+#closeArt {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+	
+	border: 1px solid black;
+	background-color: red;
+	padding: 2px;
+}

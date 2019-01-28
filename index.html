@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+	<title>8-Bit Editor</title>
+	<link rel="stylesheet" href="style.css">
+	<link href="https://fonts.googleapis.com/css?family=Aleo" rel="stylesheet">
+	<meta charset="UTF-8">
+</head>
+<body>
+	<div id="container">
+
+		<div id="canvasWrapper">
+			<canvas id="transparency" width="512" height="512"></canvas>
+			<canvas id="editor" width="512" height="512"></canvas>
+		</div>
+
+		<div id="settingWrapper">
+			<h2>Settings</h2>
+
+			<div id="colorWellWrapper">
+				<label for="colorWell">Color:</label>
+				<input type="color" value="#000099" id="colorWell">
+			</div>
+
+			<div id="toolsWrapper">
+				<h3>Tools</h3>
+				<input type="radio" name="tool" value="brush" checked> Brush<br>
+				<input type="radio" name="tool" value="eraser"> Eraser<br>
+			</div>
+			
+			<div id="canvasSettingsWrapper">
+				<h3>Canvas</h3>
+				<input type="button" id="clearAll" value="Clear canvas" onclick="clearAll()">
+				<input type="button" id="setDimensions" value="Set canvas dimensions" onclick="setDimensions()">
+			</div>
+
+			<div id="saveWrapper">
+				<h3>Save</h3>
+				<input type="button" id="saveArtFull" value="Save full canvas" onclick="saveArt(Els.editor)">
+				<input type="button" id="saveArtSelection" value="Save art as selection" onclick="saveArtSelection()">
+			</div>
+		</div>
+
+	</div>
+
+	<div id="savedImageWrapper" hidden> <!-- out of document flow - placed on top -->
+		<!-- the saved image is shown here (set to not hidden when there is one) -->
+		<span id="closeArt" onclick="closeSavedArt()">✕</span> <!-- close button -->
+	</div>
+
+
+	<canvas id="saveCanvas" width="512" height="512" hidden></canvas> <!-- never shown -->
+
+	<script src="./main.js"></script>
+</body>
+</html>
