@@ -37,12 +37,19 @@
 				<h3>Canvas</h3>
 				<input type="button" id="clearAll" value="Clear canvas" onclick="clearAll()">
 				<input type="button" id="setDimensions" value="Set canvas dimensions" onclick="setDimensions()">
+				<input type="button" id="resetCanvas" value="Reset canvas" onclick="resetCanvas()">
 			</div>
 
 			<div id="saveWrapper">
 				<h3>Save</h3>
 				<input type="button" id="saveArtFull" value="Save full canvas" onclick="saveArt(Els.editor)">
 				<input type="button" id="saveArtSelection" value="Save art as selection" onclick="saveArtSelection()">
+			</div>
+
+			<div id="localStoreWrapper">
+				<h3>Local Storage</h3>
+				<input type="radio" name="localStore" id="localStoreEnabled" value="enable" onclick="localStorage.setItem('enabled', 'yes')"> Enable (for saving of art)<br>
+				<input type="radio" name="localStore" id="localStoreDisabled" value="disable" checked onclick="localStorage.removeItem('enabled')"> Disable<br>
 			</div>
 		</div>
 

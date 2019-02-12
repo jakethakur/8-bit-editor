@@ -13,6 +13,7 @@ function setup() {
 	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // art close button (hidden unless saved art is shown)
 	Els.toolButtons = document.getElementsByName('tool'); // tool setting radio buttons
 	Els.colorWell = document.querySelector("#colorWell"); // color well
+	Els.localStoreEnabled = document.querySelector("#localStoreEnabled"); // local storage on setting
 	
 	// canvas context
 	Ctx.editor = Els.editor.getContext('2d');
@@ -30,6 +31,10 @@ function setup() {
 	Els.colorWell.addEventListener("change", updateColor, false); // update the brush color upon color change
 	Els.colorWell.select();
 	
+	// local storage
+	setLocaStorageSetting(); // radio button
+	loadCurrentArt(); // load art if setting is on
+	
 	// canvas event listeners (for painting)
 	Els.editor.addEventListener("mousemove", paint); // paint tile if mouse is moved (checks if mouse is down)
 	Els.editor.addEventListener("mousedown", mouseDown); // mouse set to down
@@ -42,7 +47,7 @@ function setup() {
 //
 
 function init() {
-	setCanvasSize();
+	setCanvasSizeVariables(); // set canvas size variables
 	drawTransparency(); // draw transparency grid
 	initImageData();
 	
@@ -50,14 +55,15 @@ function init() {
 	undoArray = [];
 	redoArray = [];
 	
-	undoArray.push(deepCopyImageData(ImageData)); // add deep copied version of empty image data to undoArray
+	// add deep copied version of empty image data to undoArray
+	undoArray.push(deepCopyImageData(ImageData));
 }
 
 // set canvas size variable
 // cols = drawable squares in x axis
 // rows = drawable squares in y axis
 // called on init and whenever brush size changes
-function setCanvasSize() {
+function setCanvasSizeVariables() {
 	canvasSize.cols = Els.editor.width / Brush.size;
 	canvasSize.rows = Els.editor.height / Brush.size;
 }
@@ -193,7 +199,10 @@ function mouseUp(event) {
 		if (JSON.stringify(undoArray[undoArray.length-1]) !== JSON.stringify(ImageData)) {
 			// deep copy image data array (so it does not change when in undoArray)
 			let currentImageData = deepCopyImageData(ImageData);
+			// add to undo history
 			undoArray.push(currentImageData);
+			// save to local storage if user has setting enabled (so they can refesh and it is still there)
+			saveCurrentArt();
 		}
 	}
 }
@@ -262,8 +271,8 @@ function closeSavedArt() {
 
 // user setting to clear the editor canvas
 function clearAll() {
-	if (confirm("Are you sure you want to clear the canvas?")) {
-		clearCanvas();
+	if (confirm("Are you sure you want to clear the canvas? The previous states will still be accessible in the undo history.")) {
+		clearCanvas(true);
 	}
 }
 
@@ -271,44 +280,26 @@ function clearAll() {
 // this clears any existing drawing on it
 function setDimensions() {
 	// check they are happy for their art to be cleared
-	if (confirm("Are you sure you want to resize the canvas? This will clear any existing art on it.")) {
+	if (confirm("Are you sure you want to resize the canvas? This will clear any existing art on it and remove the undo history.")) {
 		// take inputs
 		let width = parseInt(prompt("Please enter pixel width value for canvas (leave blank to remain the same)"));
 		let height = parseInt(prompt("Please enter height width value for canvas (leave blank to remain the same)"));
 		
-		if (!isNaN(width) && width > 0) {
-			// valid width value
-			
-			// round to brush size
-			width = Math.ceil(width/Brush.size)*Brush.size;
-			
-			// resize canvases
-			Els.editor.width = width;
-			Els.transparency.width = width;
-			// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
-		}
-		
-		if (!isNaN(height) && height > 0) {
-			// valid height value
-			
-			// round to brush size
-			height = Math.ceil(height/Brush.size)*Brush.size;
-			
-			// resize canvases
-			Els.editor.height = height;
-			Els.transparency.height = height;
-			// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
-		}
-		
-		// update varibles etc.
-		init();
-		
-		Ctx.editor.fillStyle = Els.colorWell.value;
+		resizeCanvas(width, height);
+	}
+}
+
+// user setting to reset (re-init) the editor canvas
+function resetCanvas() {
+	if (confirm("Are you sure you want to reset the canvas? This will also reset the canvas dimensions and delete the undo history.")) {
+		// reset height and width to their default values
+		// also re-inits canvas
+		resizeCanvas(512, 512);
 	}
 }
 
 //
-// Canvas functions
+// Canvas functions (tools)
 //
 
 // paint a tile
@@ -363,8 +354,53 @@ function eraseTile(position) {
 }
 
 // clears the editor canvas
-function clearCanvas() {
+// addToUndo is a boolean of whether the cleared canvas should be saved to undo
+function clearCanvas(addToUndo) {
 	Ctx.editor.clearRect(0, 0, Els.editor.width, Els.editor.height);
+	
+	// reset image data
+	initImageData();
+	
+	// save to local storage if user has setting enabled (so they can refesh and it is also cleared)
+	saveCurrentArt();
+	
+	if (addToUndo) {
+		// add deep copied version of empty image data to undoArray
+		undoArray.push(deepCopyImageData(ImageData));
+	}
+}
+
+// set the size of the canvas to a rounded version of any correct parameters (width and height)
+// also re-inits canvas
+function resizeCanvas(width, height) {
+	if (!isNaN(width) && width > 0) {
+		// valid width value
+		
+		// round to brush size
+		width = Math.ceil(width/Brush.size)*Brush.size;
+		
+		// resize canvases
+		Els.editor.width = width;
+		Els.transparency.width = width;
+		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
+	}
+	
+	if (!isNaN(height) && height > 0) {
+		// valid height value
+		
+		// round to brush size
+		height = Math.ceil(height/Brush.size)*Brush.size;
+		
+		// resize canvases
+		Els.editor.height = height;
+		Els.transparency.height = height;
+		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
+	}
+	
+	// update varibles etc.
+	init();
+	
+	Ctx.editor.fillStyle = Els.colorWell.value;
 }
 
 //
@@ -431,23 +467,157 @@ function setImageData(position, value) {
 
 // draw the image data parameter onto the canvas
 function drawImageData(data) {
-	clearCanvas();
-	
-	for (let col = 0; col < data.length; col++) { // iterate through columns
-		for (let row = 0; row < data.length; row++) { // iterate through rows
-			if (data[col][row] !== undefined && data[col][row] !== null) {
-				// not a transparent pixel
-				// set fill colour
-				Ctx.editor.fillStyle = data[col][row];
-				// 16 is the default brush size (size stored by ImageData)
-				Ctx.editor.fillRect(col * 16, row * 16, 16, 16);
+	// check parameter is not null
+	if (data !== null) {
+		clearCanvas(false);
+		
+		for (let col = 0; col < data.length; col++) { // iterate through columns
+			for (let row = 0; row < data[col].length; row++) { // iterate through rows
+				if (data[col][row] !== undefined && data[col][row] !== null) {
+					// not a transparent pixel
+					// set fill colour
+					Ctx.editor.fillStyle = data[col][row];
+					// 16 is the default brush size (size stored by ImageData)
+					Ctx.editor.fillRect(col * 16, row * 16, 16, 16);
+				}
 			}
 		}
+		
+		// update image data
+		ImageData = data;
+		
+		// save to local storage if user has setting enabled (so they can refesh and it is still there)
+		saveCurrentArt();
+		
+		// reset fill colour to what it was
+		Ctx.editor.fillStyle = Brush.color;
 	}
+}
+
+// draw the image data parameter onto the canvas
+// also resizes canvas to size of image data, and re-inits canvas (e.g. removes undo and redo history)
+function importImageData(data, init) {
+	// check parameter is not null
+	if (data !== null) {
+		// resize the canvas to the imagedata's size
+		// also re-iinits the canvas
+		resizeCanvas(data.length * 16, data[0].length * 16);
+		
+		// now draw the image data on the canvas
+		for (let col = 0; col < data.length; col++) { // iterate through columns
+			for (let row = 0; row < data[col].length; row++) { // iterate through rows
+				if (data[col][row] !== undefined && data[col][row] !== null) {
+					// not a transparent pixel
+					// set fill colour
+					Ctx.editor.fillStyle = data[col][row];
+					// 16 is the default brush size (size stored by ImageData)
+					Ctx.editor.fillRect(col * 16, row * 16, 16, 16);
+				}
+			}
+		}
+		
+		// update image data
+		ImageData = data;
+		
+		if (init === true) { // importImageData was called by saved local art - do not save again
+			// save to local storage if user has setting enabled (so they can refesh and it is still there)
+			saveCurrentArt();
+		}
+		
+		// reset fill colour to what it was
+		Ctx.editor.fillStyle = Brush.color;
+	}
+}
+
+//
+// JSON array functions (for local store saving of image data)
+//
+
+// JSON stringify for array
+function stringifyArray(array) {
+	let obj = {};
+	array.forEach((element, i) => {
+		if (element === undefined || element === null) {
+			// transparent pixel
+			obj[i] = null;
+		}
+		else if (element.constructor === Array) {
+			// element is an array
+			// for multidimensional arrays
+			obj[i] = stringifyArray(element);
+		}
+		else {
+			obj[i] = element;
+		}
+	});
+	return JSON.stringify(obj);
+}
+
+// JSON parse for array (for use with stringifyArray)
+function parseArray(json) {
+	// parse the stringified object into an object
+	let obj = JSON.parse(json);
 	
-	// update image data
-	ImageData = data;
+	if (obj !== null) {
+		let arr = [];
+		// convert object to array
+		Object.keys(obj).forEach(key => {
+			// in case the property should be another object (for multi-dimensional arrays), parse contents
+			// the parsed version is not saved to the array directly since parseArray will parse it anyway when it is called recursively
+			let contents;
+			try {
+				// try catch used because the contents might not always be valid JSON
+				contents = JSON.parse(obj[key]);
+			}
+			catch (e) {
+				contents = null;
+			}
+			
+			if (typeof contents === "object" && contents !== null) {
+				// element is an object
+				// for multidimensional arrays
+				arr.push(parseArray(obj[key]));
+			}
+			else {
+				arr.push(obj[key]);
+			}
+		});
+		return arr;
+	}
+	return json;
+}
+
+//
+// Local storage functions
+//
+
+// set the local storage radio button to whatever was chosen previously by user
+function setLocaStorageSetting() {
+	if (localStorage.getItem("enabled") === "yes") {
+		Els.localStoreEnabled.checked = true;
+	}
+}
+
+// save the art on the canvas to local storage so it is there if they refresh
+// called every time something is changed on canvas
+// note that undo/redo information is not saved (TBD tell this to user)
+function saveCurrentArt() {
+	if (Els.localStoreEnabled.checked) {
+		// local storage enabled
+		localStorage.setItem("currentArt", stringifyArray(ImageData));
+	}
+}
+
+// load and draw the art that was saved to be on canvas
+function loadCurrentArt() {
+	if (Els.localStoreEnabled.checked) {
+		// local storage enabled
+		// draw the image and set image data
+		importImageData(parseArray(localStorage.getItem("currentArt")), true);
+	}
+}
+
+// save the art to local storage
+function saveArtLocal() {
 	
-	// reset fill colour to what it was
-	Ctx.editor.fillStyle = Brush.color;
 }
