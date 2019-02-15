@@ -40,10 +40,16 @@
 				<input type="button" id="resetCanvas" value="Reset canvas" onclick="resetCanvas()">
 			</div>
 
-			<div id="saveWrapper">
-				<h3>Save</h3>
+			<div id="exportWrapper">
+				<h3>Export</h3>
 				<input type="button" id="saveArtFull" value="Save full canvas" onclick="saveArt(Els.editor)">
 				<input type="button" id="saveArtSelection" value="Save art as selection" onclick="saveArtSelection()">
+				<input type="button" id="saveArtLocal" value="Save to local storage" onclick="saveArtLocalMenu()">
+			</div>
+
+			<div id="ImportWrapper">
+				<h3>Import</h3>
+				<input type="button" id="loadArtLocal" value="Load from local storage" onclick="loadArtLocalMenu()">
 			</div>
 
 			<div id="localStoreWrapper">
@@ -55,9 +61,38 @@
 
 	</div>
 
-	<div id="savedImageWrapper" hidden> <!-- out of document flow - placed on top -->
+	<div class="saveWrapper" id="savedImageWrapper" hidden> <!-- out of document flow - placed on top -->
 		<!-- the saved image is shown here (set to not hidden when there is one) -->
-		<span id="closeArt" onclick="closeSavedArt()">✕</span> <!-- close button -->
+		<span class="closeButton" id="closeArt" onclick="closeSavedArt()">✕</span> <!-- close button -->
+	</div>
+
+	<div class="saveWrapper" id="saveArtLocalWrapper" hidden> <!-- out of document flow - placed on top -->
+		<!-- shown when saving art to local storage -->
+		
+		<span class="closeButton" id="closeLocalStorageExport" onclick="Els.saveArtLocalWrapper.hidden = true">✕</span> <!-- close button -->
+		
+		<h1>Save to local storage</h1>
+		
+		<h2>Image metadata</h2>
+		
+		<label for="artNameInput">Art name:</label>
+		<input type="text" id="artNameInput">
+		
+		<label for="author">Author:</label>
+		<input type="text" id="authorInput">
+		
+		<input type="button" id="loadArtJSON" value="Save!" onclick="saveArtLocal()">
+	</div>
+
+	<div class="saveWrapper" id="loadArtLocalWrapper" hidden> <!-- out of document flow - placed on top -->
+		<!-- shown when loading art from local storage -->
+		
+		<span class="closeButton" id="closeLocalStorageImport" onclick="Els.loadArtLocalWrapper.hidden = true">✕</span> <!-- close button -->
+		
+		<h1>Load from local storage</h1>
+		
+		<!-- locally saved art is added here -->
+		<ul id="savedArtList"></ul>
 	</div>
 
 

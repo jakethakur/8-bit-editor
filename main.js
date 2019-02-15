@@ -1,3 +1,5 @@
+EditorVersion = "0.2.0"
+
 //
 // Setup
 //
@@ -7,13 +9,30 @@ window.addEventListener("load", setup, false);
 
 function setup() {
 	// elements
+	
+	// canvases
 	Els.editor = document.querySelector("#editor"); // main image canvas (this is exported at the end)
 	Els.transparency = document.querySelector("#transparency"); // transparency canvas
 	Els.saveCanvas = document.querySelector("#saveCanvas"); // image save canvas (always hidden)
-	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // art close button (hidden unless saved art is shown)
+	
+	// hidden elements (shown when a certain menu is opened)
+	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // save art wrapper (hidden unless saved art is shown)
+	Els.saveArtLocalWrapper = document.querySelector("#saveArtLocalWrapper"); // save art wrapper (hidden until save art to local storage)
+	Els.loadArtLocalWrapper = document.querySelector("#loadArtLocalWrapper"); // load art wrapper (hidden until load art to local storage)
+	
+	// settings
 	Els.toolButtons = document.getElementsByName('tool'); // tool setting radio buttons
 	Els.colorWell = document.querySelector("#colorWell"); // color well
 	Els.localStoreEnabled = document.querySelector("#localStoreEnabled"); // local storage on setting
+	
+	// metadata inputs
+	Els.artNameInput = document.querySelector("#artNameInput"); // art name
+	Els.authorInput = document.querySelector("#authorInput"); // author name
+	
+	// load from local storage output
+	Els.savedArtList = document.querySelector("#savedArtList"); // list of saved art
+	
+	
 	
 	// canvas context
 	Ctx.editor = Els.editor.getContext('2d');
@@ -43,13 +62,16 @@ function setup() {
 }
 
 //
-// Init new canvas (called every time a new canvas is created)
+// Init new canvas (called every time a new canvas is created, e.g. canvas resized)
 //
 
 function init() {
 	setCanvasSizeVariables(); // set canvas size variables
 	drawTransparency(); // draw transparency grid
 	initImageData();
+	
+	// save blank image data to local storage if the setting is enabled
+	saveCurrentArt();
 	
 	// reset undo and redo
 	undoArray = [];
@@ -298,6 +320,61 @@ function resetCanvas() {
 	}
 }
 
+// open and re-init local storage export menu
+function saveArtLocalMenu(canvas) {
+	if (Els.localStoreEnabled.checked) {
+		// local storage enabled
+		
+		// delete what is in the input fields
+		Els.artNameInput.value = "";
+		Els.authorInput.value = "";
+		
+		// show the whole wrapper
+		Els.saveArtLocalWrapper.hidden = false;
+	}
+	else {
+		// local storage is not enabled
+		alert("You must turn on local storage to use this feature.");
+	}
+}
+
+// open and init local storage inport menu
+function loadArtLocalMenu(canvas) {
+	if (Els.localStoreEnabled.checked) {
+		// local storage enabled
+		
+		// parse the array of saved art so .metadata and .imageData can be accessed for each element
+		let savedArtArray = parseArtArray(localStorage.getItem("savedArt"));
+		
+		if (savedArtArray !== null) {
+			// art has been saved before
+			
+			// wipe the previously generated saved art list
+			Els.savedArtList.innerHTML = "";
+			
+			// now add art to the saved art list from the saved art array
+			for (let i = 0; i < savedArtArray.length; i++) {
+				// add onClick to load the art
+				let listElement = document.createElement('li');
+				listElement.onclick = createArtLoadOnclick(savedArtArray[i].imageData);
+				listElement.appendChild(document.createTextNode(savedArtArray[i].metadata.name));
+				Els.savedArtList.appendChild(listElement);
+			}
+			
+			// show the whole wrapper
+			Els.loadArtLocalWrapper.hidden = false;
+		}
+		else {
+			// no need to open menu since nothing has been saved
+			alert("You have no local saved art to load!");
+		}
+	}
+	else {
+		// local storage is not enabled
+		alert("You must turn on local storage to use this feature.");
+	}
+}
+
 //
 // Canvas functions (tools)
 //
@@ -446,15 +523,6 @@ function redo() {
 	}
 }
 
-// returns a deep copy of the 2d array parameter (so it does not change when in undoArray/redoArray)
-function deepCopyImageData(data) {
-	data = data.map(function(arr) {
-		return arr.slice();
-	});
-	
-	return data;
-}
-
 //
 // Image data functions
 //
@@ -529,11 +597,20 @@ function importImageData(data, init) {
 	}
 }
 
+// returns a deep copy of the 2d array parameter (so it does not change when in undoArray/redoArray)
+function deepCopyImageData(data) {
+	data = data.map(function(arr) {
+		return arr.slice();
+	});
+	
+	return data;
+}
+
 //
 // JSON array functions (for local store saving of image data)
 //
 
-// JSON stringify for array
+// JSON stringify for multidimensional array
 function stringifyArray(array) {
 	let obj = {};
 	array.forEach((element, i) => {
@@ -553,7 +630,7 @@ function stringifyArray(array) {
 	return JSON.stringify(obj);
 }
 
-// JSON parse for array (for use with stringifyArray)
+// JSON parse for multidimensional array (for use with stringifyArray)
 function parseArray(json) {
 	// parse the stringified object into an object
 	let obj = JSON.parse(json);
@@ -588,6 +665,63 @@ function parseArray(json) {
 }
 
 //
+// Export and import art from JSON
+//
+
+// convert the whole image to JSON (inc. metadata)
+// parameters are for metadata
+function getArtJSON(name, author) {
+	let artJSON = {};
+	artJSON.imageData = stringifyArray(ImageData);
+	artJSON.metadata = {
+		name: name,
+		author: author,
+		editorVersion: EditorVersion,
+	};
+	
+	artJSON = JSON.stringify(artJSON);
+	
+	return artJSON;
+}
+
+// get the image data from JSON
+function getImageDataJSON(artJSON) {
+	artJSON = JSON.parse(artJSON);
+	
+	let imageData = parseArray(artJSON.imageData);
+	
+	return imageData;
+}
+
+// parse an array of art JSONs (from local storage saving of art)
+function parseArtArray(artArray) {
+	if (artArray !== null) {
+		// parse top-level array of art with JSON.parse into object
+		artArray = JSON.parse(artArray);
+		// now convert object to array
+		artArray = Object.values(artArray);
+		// now parse all of these so that .metadata and .imageData can be accessed
+		for (let i = 0; i < artArray.length; i++) {
+			artArray[i] = JSON.parse(artArray[i]);
+			// also parse the .imageData array (multidimensional) as well
+			artArray[i].imageData = parseArray(artArray[i].imageData)
+		}
+	}
+	
+	return artArray;
+}
+
+// return function that loads the imageData at the parameter
+function createArtLoadOnclick(imageData) {
+	return function () {
+		// import the imageData
+		importImageData(imageData);
+		// close the import art page
+		Els.loadArtLocalWrapper.hidden = true;
+	}
+}
+
+//
 // Local storage functions
 //
 
@@ -617,7 +751,27 @@ function loadCurrentArt() {
 	}
 }
 
-// save the art to local storage
+// save the art to local storage (called after the metadata menu has been opened)
 function saveArtLocal() {
+	let artName = Els.artNameInput.value;
+	let authorName = Els.authorInput.value;
+
+	// get the art's JSON
+	let artJSON = getArtJSON(artName, authorName);
 	
+	// get the saved art array from local storage
+	// just stringifies the array itself
+	let savedArtArray = JSON.parse(localStorage.getItem("savedArt"));
+	if (savedArtArray === null) {
+		// has not been initialised yet
+		savedArtArray = [];
+	}
+	
+	savedArtArray.push(artJSON);
+	
+	// save the updated array back to local storage
+	localStorage.setItem("savedArt", JSON.stringify(savedArtArray));
+	
+	// close the page
+	Els.saveArtLocalWrapper.hidden = true;
 }

@@ -33,12 +33,9 @@ body {
 	margin: 5px;
 }
 
-/* saved image (position in centre of screen) */
-#savedImage {
-}
 
-/* contains saved image (position in centre of screen) */
-#savedImageWrapper {
+/* wrappers in centre of screen */
+.saveWrapper {
 	position: absolute;
 	left: 50%;
 	top: 50%;
@@ -48,14 +45,17 @@ body {
 	background-color: white;
 	padding: 5px;
 }
+/* contains saved image */
+#savedImageWrapper {
+}
 
-/* close button for saved image */
-#closeArt {
+/* close buttons */
+.closeButton {
     position: absolute;
-    top: -15px;
-    right: -15px;
-	
 	border: 1px solid black;
 	background-color: red;
 	padding: 2px;
+	
+    top: -15px;
+    right: -15px;
 }
