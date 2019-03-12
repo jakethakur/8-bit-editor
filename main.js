@@ -1,4 +1,4 @@
-EditorVersion = "0.2.0"
+const EditorVersion = "0.3.0"
 
 //
 // Setup
@@ -17,8 +17,9 @@ function setup() {
 	
 	// hidden elements (shown when a certain menu is opened)
 	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // save art wrapper (hidden unless saved art is shown)
-	Els.saveArtLocalWrapper = document.querySelector("#saveArtLocalWrapper"); // save art wrapper (hidden until save art to local storage)
 	Els.loadArtLocalWrapper = document.querySelector("#loadArtLocalWrapper"); // load art wrapper (hidden until load art to local storage)
+	Els.metadataWrapper = document.querySelector("#metadataWrapper"); // metadata wrapper (hidden until art metadata is changed)
+	Els.loadArtJSONWrapper = document.querySelector("#loadArtJSONWrapper"); // file upload screen
 	
 	// settings
 	Els.toolButtons = document.getElementsByName('tool'); // tool setting radio buttons
@@ -31,6 +32,9 @@ function setup() {
 	
 	// load from local storage output
 	Els.savedArtList = document.querySelector("#savedArtList"); // list of saved art
+	
+	// upload JSON file input
+	Els.artInput = document.querySelector("#artInput");
 	
 	
 	
@@ -76,6 +80,10 @@ function init() {
 	// reset undo and redo
 	undoArray = [];
 	redoArray = [];
+	
+	// reset metadata
+	Els.artNameInput.value = "";
+	Els.authorInput.value = "";
 	
 	// add deep copied version of empty image data to undoArray
 	undoArray.push(deepCopyImageData(ImageData));
@@ -147,6 +155,8 @@ var canvasSize = {};
 var undoArray = []; // array of previous canvas state ImageDatas (saved on mouse up)
 var redoArray = []; // array of future canvas state ImageDatas (added to by undo function and wiped on mouse down)
 // the empty image data is added to undoArray by the init function
+
+var afterMetadataClose; // set to a function that should be called after metadata is closed
 
 //
 // Event listener functions
@@ -320,27 +330,9 @@ function resetCanvas() {
 	}
 }
 
-// open and re-init local storage export menu
-function saveArtLocalMenu(canvas) {
-	if (Els.localStoreEnabled.checked) {
-		// local storage enabled
-		
-		// delete what is in the input fields
-		Els.artNameInput.value = "";
-		Els.authorInput.value = "";
-		
-		// show the whole wrapper
-		Els.saveArtLocalWrapper.hidden = false;
-	}
-	else {
-		// local storage is not enabled
-		alert("You must turn on local storage to use this feature.");
-	}
-}
-
 // open and init local storage inport menu
 function loadArtLocalMenu(canvas) {
-	if (Els.localStoreEnabled.checked) {
+	if (confirmLocalStorage()) {
 		// local storage enabled
 		
 		// parse the array of saved art so .metadata and .imageData can be accessed for each element
@@ -369,9 +361,58 @@ function loadArtLocalMenu(canvas) {
 			alert("You have no local saved art to load!");
 		}
 	}
+}
+
+function saveArtJSON() {
+	if (confirmMetadata(saveArtJSON)) {
+		// metadata is fine
+
+		// get the art's JSON
+		let artJSON = getArtJSON();
+		
+		// create the file
+		let filename = "art.json";
+		let blob = new Blob([artJSON], {type: 'text/plain'});
+		if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+			window.navigator.msSaveOrOpenBlob(blob, filename);
+		}
+		else {
+			let e = document.createEvent('MouseEvents');
+			let a = document.createElement('a');
+			a.download = filename;
+			a.href = window.URL.createObjectURL(blob);
+			a.dataset.downloadurl = ['text/plain', a.download, a.href].join(':');
+			e.initEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+			a.dispatchEvent(e);
+		}
+	}
+}
+
+// called once an uploaded file has been confirmed
+function readUploadedFile() {
+	const file = Els.artInput.files[0];
+	
+	if (file !== undefined) {
+		// set up new file reader
+		let reader = new FileReader();
+		
+		let fileContents;
+		
+		// called by readAsText
+		reader.onload = (function(e) {
+			contents = e.target.result;
+			// now use these contents
+			loadArtJSON(contents);
+			// close the menu and reset the file input
+			Els.loadArtJSONWrapper.hidden = true;
+			Els.artInput.value = null;
+		});
+
+		// read as text
+		reader.readAsText(file);
+	}
 	else {
-		// local storage is not enabled
-		alert("You must turn on local storage to use this feature.");
+		alert("No file selected!");
 	}
 }
 
@@ -564,11 +605,12 @@ function drawImageData(data) {
 
 // draw the image data parameter onto the canvas
 // also resizes canvas to size of image data, and re-inits canvas (e.g. removes undo and redo history)
+// init = if it was called on init
 function importImageData(data, init) {
 	// check parameter is not null
 	if (data !== null) {
 		// resize the canvas to the imagedata's size
-		// also re-iinits the canvas
+		// also re-inits the canvas
 		resizeCanvas(data.length * 16, data[0].length * 16);
 		
 		// now draw the image data on the canvas
@@ -587,7 +629,7 @@ function importImageData(data, init) {
 		// update image data
 		ImageData = data;
 		
-		if (init === true) { // importImageData was called by saved local art - do not save again
+		if (init === false) { // if init is true, importImageData was called by saved local art - do not save again
 			// save to local storage if user has setting enabled (so they can refesh and it is still there)
 			saveCurrentArt();
 		}
@@ -669,31 +711,37 @@ function parseArray(json) {
 //
 
 // convert the whole image to JSON (inc. metadata)
-// parameters are for metadata
-function getArtJSON(name, author) {
+function getArtJSON() {
+	let artName = Els.artNameInput.value;
+	let authorName = Els.authorInput.value;
+	
 	let artJSON = {};
-	artJSON.imageData = stringifyArray(ImageData);
 	artJSON.metadata = {
-		name: name,
-		author: author,
+		name: artName,
+		author: authorName,
 		editorVersion: EditorVersion,
 	};
+	artJSON.imageData = stringifyArray(ImageData);
 	
 	artJSON = JSON.stringify(artJSON);
 	
 	return artJSON;
 }
 
-// get the image data from JSON
-function getImageDataJSON(artJSON) {
-	artJSON = JSON.parse(artJSON);
-	
-	let imageData = parseArray(artJSON.imageData);
-	
-	return imageData;
+// parse art JSON
+function parseArtJSON(artJSON) {
+	if (artJSON !== null) {
+		artJSON = JSON.parse(artJSON);
+		
+		artJSON.imageData = parseArray(artJSON.imageData);
+		
+		return artJSON;
+	}
+	return artJSON;
 }
 
 // parse an array of art JSONs (from local storage saving of art)
+// art JSON = object of metadata and imageData
 function parseArtArray(artArray) {
 	if (artArray !== null) {
 		// parse top-level array of art with JSON.parse into object
@@ -721,9 +769,27 @@ function createArtLoadOnclick(imageData) {
 	}
 }
 
+// load art from its JSON
+function loadArtJSON(json) {
+	let obj = parseArtJSON(json);
+	importImageData(obj.imageData);
+	importMetadata(obj.metadata);
+}
+
 //
 // Local storage functions
 //
+
+// confirms that local storage is turned on, returning true if it is
+function confirmLocalStorage() {
+	if (Els.localStoreEnabled.checked) {
+		// local storage enabled
+		return true;
+	}
+	// local storage is not enabled
+	alert("You must turn on local storage to use this feature.");
+	return false;
+}
 
 // set the local storage radio button to whatever was chosen previously by user
 function setLocaStorageSetting() {
@@ -738,7 +804,8 @@ function setLocaStorageSetting() {
 function saveCurrentArt() {
 	if (Els.localStoreEnabled.checked) {
 		// local storage enabled
-		localStorage.setItem("currentArt", stringifyArray(ImageData));
+		localStorage.setItem("currentArt", getArtJSON()); // saves even if metadata has not been set
+		// metadata is saved so this can be recalled on loading current art
 	}
 }
 
@@ -747,31 +814,88 @@ function loadCurrentArt() {
 	if (Els.localStoreEnabled.checked) {
 		// local storage enabled
 		// draw the image and set image data
-		importImageData(parseArray(localStorage.getItem("currentArt")), true);
+		let newArt = parseArtJSON(localStorage.getItem("currentArt"));
+		if (newArt !== null) {
+			// import the image data
+			importImageData(newArt.imageData, true);
+			// import the metadata
+			importMetadata(newArt.metadata);
+		}
 	}
 }
 
-// save the art to local storage (called after the metadata menu has been opened)
+// save the art to local storage
+// called by the setting button
 function saveArtLocal() {
+	if (confirmLocalStorage()) {
+		// local storage enabled
+		
+		if (confirmMetadata(saveArtLocal)) {
+			// metadata is fine
+			
+			// get the art's JSON
+			let artJSON = getArtJSON();
+			
+			// get the saved art array from local storage
+			// just stringifies the array itself
+			let savedArtArray = JSON.parse(localStorage.getItem("savedArt"));
+			if (savedArtArray === null) {
+				// has not been initialised yet
+				savedArtArray = [];
+			}
+			
+			savedArtArray.push(artJSON);
+			
+			// save the updated array back to local storage
+			localStorage.setItem("savedArt", JSON.stringify(savedArtArray));
+		}
+		
+	}
+}
+
+//
+// Metadata setting and confirming
+//
+
+// confirm that valid metadata has been set, returning true if it has been
+// callback is the function that is called after the metadata has been set
+// callback should be undefined if there is no callback
+function confirmMetadata(callback) {
 	let artName = Els.artNameInput.value;
 	let authorName = Els.authorInput.value;
-
-	// get the art's JSON
-	let artJSON = getArtJSON(artName, authorName);
 	
-	// get the saved art array from local storage
-	// just stringifies the array itself
-	let savedArtArray = JSON.parse(localStorage.getItem("savedArt"));
-	if (savedArtArray === null) {
-		// has not been initialised yet
-		savedArtArray = [];
+	if (artName === "" || authorName === "") {
+		// make them set the metadata first
+		alert("You must enter metadata for the art first.");
+		// reopen the old page after
+		afterMetadataClose = callback;
+		// open the page
+		Els.metadataWrapper.hidden = false;
+		
+		return false;
 	}
-	
-	savedArtArray.push(artJSON);
-	
-	// save the updated array back to local storage
-	localStorage.setItem("savedArt", JSON.stringify(savedArtArray));
-	
+	return true;
+}
+
+// called when metadata is closed
+// calls the metadata callback
+function metadataClosed() {
 	// close the page
-	Els.saveArtLocalWrapper.hidden = true;
+	Els.metadataWrapper.hidden = true;
+	
+	// save the changed metadata
+	saveCurrentArt();
+	
+	// call any function that should now be called
+	if (afterMetadataClose !== undefined) {
+		let callback = afterMetadataClose;
+		afterMetadataClose = undefined;
+		callback();
+	}
+}
+
+// load metadata from an object containing name and author
+function importMetadata(metadataObj) {
+	Els.artNameInput.value = metadataObj.name;
+	Els.authorInput.value = metadataObj.author;
 }

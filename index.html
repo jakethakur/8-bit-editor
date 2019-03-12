@@ -26,6 +26,8 @@
 				<input type="button" id="undoButton" value="Undo" onclick="undo()">
 				<input type="button" id="redoButton" value="Redo" onclick="redo()">
 			</div>
+			
+			<input type="button" id="editMetadataButton" value="Edit metadata" onclick="Els.metadataWrapper.hidden = false;">
 
 			<div id="toolsWrapper">
 				<h3>Tools</h3>
@@ -44,12 +46,14 @@
 				<h3>Export</h3>
 				<input type="button" id="saveArtFull" value="Save full canvas" onclick="saveArt(Els.editor)">
 				<input type="button" id="saveArtSelection" value="Save art as selection" onclick="saveArtSelection()">
-				<input type="button" id="saveArtLocal" value="Save to local storage" onclick="saveArtLocalMenu()">
+				<input type="button" id="saveArtLocal" value="Save to local storage" onclick="saveArtLocal()">
+				<input type="button" id="saveArtJSON" value="Save as JSON" onclick="saveArtJSON()">
 			</div>
 
 			<div id="ImportWrapper">
 				<h3>Import</h3>
 				<input type="button" id="loadArtLocal" value="Load from local storage" onclick="loadArtLocalMenu()">
+				<input type="button" id="loadArtJSON" value="Load from JSON" onclick="Els.loadArtJSONWrapper.hidden = false">
 			</div>
 
 			<div id="localStoreWrapper">
@@ -66,14 +70,12 @@
 		<span class="closeButton" id="closeArt" onclick="closeSavedArt()">✕</span> <!-- close button -->
 	</div>
 
-	<div class="saveWrapper" id="saveArtLocalWrapper" hidden> <!-- out of document flow - placed on top -->
+	<div class="saveWrapper" id="metadataWrapper" hidden> <!-- out of document flow - placed on top -->
 		<!-- shown when saving art to local storage -->
 		
-		<span class="closeButton" id="closeLocalStorageExport" onclick="Els.saveArtLocalWrapper.hidden = true">✕</span> <!-- close button -->
+		<span class="closeButton" id="closeMetadata" onclick="Els.metadataWrapper.hidden = true">✕</span> <!-- close button -->
 		
-		<h1>Save to local storage</h1>
-		
-		<h2>Image metadata</h2>
+		<h1>Set image metadata</h1>
 		
 		<label for="artNameInput">Art name:</label>
 		<input type="text" id="artNameInput">
@@ -81,7 +83,7 @@
 		<label for="author">Author:</label>
 		<input type="text" id="authorInput">
 		
-		<input type="button" id="loadArtJSON" value="Save!" onclick="saveArtLocal()">
+		<input type="button" id="confirmMetadata" value="Save!" onclick="metadataClosed()">
 	</div>
 
 	<div class="saveWrapper" id="loadArtLocalWrapper" hidden> <!-- out of document flow - placed on top -->
@@ -93,6 +95,18 @@
 		
 		<!-- locally saved art is added here -->
 		<ul id="savedArtList"></ul>
+	</div>
+
+	<div class="saveWrapper" id="loadArtJSONWrapper" hidden> <!-- out of document flow - placed on top -->
+		<!-- shown when loading art from JSON file -->
+		
+		<span class="closeButton" id="closeLoadArtJSON" onclick="Els.loadArtJSONWrapper.hidden = true">✕</span> <!-- close button -->
+		
+		<h1>Upload an art file</h1>
+		
+		<input type="file" id="artInput">
+		
+		<input type="button" id="confirmLoadArtJSON" value="Upload!" onclick="readUploadedFile()">
 	</div>
 
 
