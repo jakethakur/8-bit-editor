@@ -45,8 +45,15 @@ body {
 	background-color: white;
 	padding: 5px;
 }
-/* contains saved image */
-#savedImageWrapper {
+
+/* art delete button */
+.artDeleteButton {
+	color: red;
+	
+	padding-right: 5px;
+	
+	position: absolute;
+	right: 0px;
 }
 
 /* close buttons */

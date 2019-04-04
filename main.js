@@ -1,4 +1,4 @@
-const EditorVersion = "0.3.0"
+const EditorVersion = "0.3.1"
 
 //
 // Setup
@@ -73,9 +73,6 @@ function init() {
 	setCanvasSizeVariables(); // set canvas size variables
 	drawTransparency(); // draw transparency grid
 	initImageData();
-	
-	// save blank image data to local storage if the setting is enabled
-	saveCurrentArt();
 	
 	// reset undo and redo
 	undoArray = [];
@@ -341,17 +338,8 @@ function loadArtLocalMenu(canvas) {
 		if (savedArtArray !== null) {
 			// art has been saved before
 			
-			// wipe the previously generated saved art list
-			Els.savedArtList.innerHTML = "";
-			
-			// now add art to the saved art list from the saved art array
-			for (let i = 0; i < savedArtArray.length; i++) {
-				// add onClick to load the art
-				let listElement = document.createElement('li');
-				listElement.onclick = createArtLoadOnclick(savedArtArray[i].imageData);
-				listElement.appendChild(document.createTextNode(savedArtArray[i].metadata.name));
-				Els.savedArtList.appendChild(listElement);
-			}
+			// init the menu
+			loadArtLocalMenuUpdate(savedArtArray);
 			
 			// show the whole wrapper
 			Els.loadArtLocalWrapper.hidden = false;
@@ -363,6 +351,47 @@ function loadArtLocalMenu(canvas) {
 	}
 }
 
+
+// re-init the display of the load art local menu
+function loadArtLocalMenuUpdate(savedArtArray) {
+	// wipe the previously generated saved art list
+	Els.savedArtList.innerHTML = "";
+	
+	if (savedArtArray == null || savedArtArray.length === 0) {
+		// parameter is undefined, null, or empty (double equals are intentional to catch undefined)
+		// no art to display; display a nice message instead
+		Els.savedArtList.innerHTML += "No local saved art to be shown."
+	}
+	else {
+		// now add art to the saved art list from the saved art array
+		for (let i = 0; i < savedArtArray.length; i++) {
+			
+			// delete art from local storage element
+			let deleteArtElement = document.createElement('span');
+			// styling
+			deleteArtElement.classList.add("artDeleteButton");
+			deleteArtElement.innerText = "delete";
+			// onclick to delete the art (done via closure)
+			deleteArtElement.onclick = createArtDeleteOnclick(savedArtArray[i].metadata.name);
+			// add the element!
+			Els.savedArtList.appendChild(deleteArtElement);
+			
+			// list element the art is contained in
+			let listElement = document.createElement('li');
+			// add onclick to load the art
+			listElement.onclick = createArtLoadOnclick(savedArtArray[i].imageData, savedArtArray[i].metadata);
+			// displayed text for the art
+			// name
+			listElement.innerHTML += "<strong>" + savedArtArray[i].metadata.name + "</strong>";
+			// last edited
+			listElement.innerHTML += "   <i>(last edited: " + savedArtArray[i].metadata.date + ")</i>";
+			// add the element!
+			Els.savedArtList.appendChild(listElement);
+		}
+	}
+}
+
+// save art as JSON file
 function saveArtJSON() {
 	if (confirmMetadata(saveArtJSON)) {
 		// metadata is fine
@@ -653,6 +682,7 @@ function deepCopyImageData(data) {
 //
 
 // JSON stringify for multidimensional array
+// note that the parameter's variable is changed as well (deep copy to stop that from happening)
 function stringifyArray(array) {
 	let obj = {};
 	array.forEach((element, i) => {
@@ -669,6 +699,7 @@ function stringifyArray(array) {
 			obj[i] = element;
 		}
 	});
+	
 	return JSON.stringify(obj);
 }
 
@@ -710,20 +741,35 @@ function parseArray(json) {
 // Export and import art from JSON
 //
 
+// stringify metadata and imageData from parameter
+function stringifyArtObject(art) {
+	let artJSON = art;
+	
+	// deep copy to avoid the parameter's variable being changed as well
+	let copiedArray = deepCopyImageData(artJSON.imageData);
+	artJSON.imageData = stringifyArray(copiedArray);
+	
+	artJSON = JSON.stringify(artJSON);
+	
+	return artJSON;
+}
+
 // convert the whole image to JSON (inc. metadata)
 function getArtJSON() {
 	let artName = Els.artNameInput.value;
 	let authorName = Els.authorInput.value;
+	let date = getDate();
 	
 	let artJSON = {};
 	artJSON.metadata = {
 		name: artName,
 		author: authorName,
 		editorVersion: EditorVersion,
+		date: date,
 	};
-	artJSON.imageData = stringifyArray(ImageData);
+	artJSON.imageData = ImageData;
 	
-	artJSON = JSON.stringify(artJSON);
+	artJSON = stringifyArtObject(artJSON);
 	
 	return artJSON;
 }
@@ -742,16 +788,17 @@ function parseArtJSON(artJSON) {
 
 // parse an array of art JSONs (from local storage saving of art)
 // art JSON = object of metadata and imageData
+// this must be the raw JSON - the outer level array should not have yet been parsed
 function parseArtArray(artArray) {
-	if (artArray !== null) {
-		// parse top-level array of art with JSON.parse into object
-		artArray = JSON.parse(artArray);
+	// parse top-level array of art with JSON.parse into object
+	artArray = JSON.parse(artArray);
+	// check it is an object
+	if (artArray !== null && typeof artArray === "object") {
 		// now convert object to array
 		artArray = Object.values(artArray);
-		// now parse all of these so that .metadata and .imageData can be accessed
+		// now parse object contents and .imageData so it can be accessed
 		for (let i = 0; i < artArray.length; i++) {
 			artArray[i] = JSON.parse(artArray[i]);
-			// also parse the .imageData array (multidimensional) as well
 			artArray[i].imageData = parseArray(artArray[i].imageData)
 		}
 	}
@@ -759,11 +806,39 @@ function parseArtArray(artArray) {
 	return artArray;
 }
 
+// stringify an array of art datas (for local storage saving of art)
+// art data = object of metadata and imageData
+function stringifyArtArray(artArray) {
+	let jsonArray = [];
+	
+	// parse art objects first
+	for (let i = 0; i < artArray.length; i++) {
+		// check it is object (some elements might already be stringified)
+		if (artArray[i] !== null && typeof artArray[i] === "object") {
+			// is object (thus should be stringified)
+			jsonArray.push(stringifyArtObject(artArray[i]));
+		}
+		else {
+			jsonArray.push(artArray[i]);
+		}
+	}
+	
+	if (jsonArray.length === 0) {
+		jsonArray = JSON.stringify(null);
+	}
+	else {
+		jsonArray = stringifyArray(jsonArray); // stringify to object
+	}
+	
+	return jsonArray;
+}
+
 // return function that loads the imageData at the parameter
-function createArtLoadOnclick(imageData) {
+function createArtLoadOnclick(imageData, metadata) {
 	return function () {
 		// import the imageData
 		importImageData(imageData);
+		importMetadata(metadata);
 		// close the import art page
 		Els.loadArtLocalWrapper.hidden = true;
 	}
@@ -774,6 +849,25 @@ function loadArtJSON(json) {
 	let obj = parseArtJSON(json);
 	importImageData(obj.imageData);
 	importMetadata(obj.metadata);
+}
+
+// return function that deletes art of name in parameter from local storage
+function createArtDeleteOnclick(artName) {
+	return function () {
+		// confirm they want to delete it
+		if (confirm("Are you sure you want to delete the art '" + artName + "'?")) {
+			// get art array
+			let artArray = parseArtArray(localStorage.getItem("savedArt"));
+			// find and delete the art
+			// art can be parsed like this since art itself does not need to be accessed (only metadata)
+			let index = artArray.findIndex(art => art.metadata.name === artName);
+			artArray.splice(index, 1);
+			// update local storage
+			localStorage.setItem("savedArt", stringifyArtArray(artArray));
+			// refresh the art import page
+			loadArtLocalMenuUpdate(artArray);
+		}
+	}
 }
 
 //
@@ -834,20 +928,24 @@ function saveArtLocal() {
 			// metadata is fine
 			
 			// get the art's JSON
+			// stringifyArtArray ignores that this is already JSON (doesn't matter)
 			let artJSON = getArtJSON();
 			
-			// get the saved art array from local storage
-			// just stringifies the array itself
-			let savedArtArray = JSON.parse(localStorage.getItem("savedArt"));
-			if (savedArtArray === null) {
+			// get saved art array
+			// completely parsing it helps with stringifyArtArray
+			let artArray = parseArtArray(localStorage.getItem("savedArt"));
+			if (artArray === null) {
 				// has not been initialised yet
-				savedArtArray = [];
+				artArray = [];
 			}
 			
-			savedArtArray.push(artJSON);
+			artArray.push(artJSON);
 			
-			// save the updated array back to local storage
-			localStorage.setItem("savedArt", JSON.stringify(savedArtArray));
+			// update local storage
+			localStorage.setItem("savedArt", stringifyArtArray(artArray));
+			
+			// friendly alert
+			alert("Art saved successfully!");
 		}
 		
 	}
@@ -898,4 +996,37 @@ function metadataClosed() {
 function importMetadata(metadataObj) {
 	Els.artNameInput.value = metadataObj.name;
 	Els.authorInput.value = metadataObj.author;
+}
+
+// returns date and time string for metadata
+function getDate() {
+	let dateString = "";
+	let d = new Date();
+	
+	let date = d.getDate();
+	if (date < 10) {
+		date = "0" + date;
+	}
+	dateString += date + "/";
+	
+	let month = d.getMonth() + 1; // months start at 0
+	if (month < 10) {
+		month = "0" + month;
+	}
+	dateString += month + "/";
+	dateString += d.getFullYear() + ", ";
+	
+	let hours = d.getHours();
+	if (hours < 10) {
+		hours = "0" + hours;
+	}
+	dateString += hours + ":";
+	
+	let mins = d.getMinutes();
+	if (mins < 10) {
+		mins = "0" + mins;
+	}
+	dateString += mins;
+	
+	return dateString;
 }
