@@ -1,4 +1,4 @@
-const EditorVersion = "0.3.1"
+const EditorVersion = "0.4.0"
 
 //
 // Setup
@@ -9,55 +9,56 @@ window.addEventListener("load", setup, false);
 
 function setup() {
 	// elements
-	
+
 	// canvases
 	Els.editor = document.querySelector("#editor"); // main image canvas (this is exported at the end)
 	Els.transparency = document.querySelector("#transparency"); // transparency canvas
 	Els.saveCanvas = document.querySelector("#saveCanvas"); // image save canvas (always hidden)
-	
+
 	// hidden elements (shown when a certain menu is opened)
 	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // save art wrapper (hidden unless saved art is shown)
 	Els.loadArtLocalWrapper = document.querySelector("#loadArtLocalWrapper"); // load art wrapper (hidden until load art to local storage)
 	Els.metadataWrapper = document.querySelector("#metadataWrapper"); // metadata wrapper (hidden until art metadata is changed)
 	Els.loadArtJSONWrapper = document.querySelector("#loadArtJSONWrapper"); // file upload screen
-	
+
 	// settings
-	Els.toolButtons = document.getElementsByName('tool'); // tool setting radio buttons
+	Els.toolButtons = document.getElementsByName("tool"); // tool setting radio buttons
 	Els.colorWell = document.querySelector("#colorWell"); // color well
+	Els.brushSizeSelect = document.querySelector("#brushSizeSelect"); // brush size
 	Els.localStoreEnabled = document.querySelector("#localStoreEnabled"); // local storage on setting
-	
+
 	// metadata inputs
 	Els.artNameInput = document.querySelector("#artNameInput"); // art name
 	Els.authorInput = document.querySelector("#authorInput"); // author name
-	
+
 	// load from local storage output
 	Els.savedArtList = document.querySelector("#savedArtList"); // list of saved art
-	
+
 	// upload JSON file input
 	Els.artInput = document.querySelector("#artInput");
-	
-	
-	
+
+
+
 	// canvas context
 	Ctx.editor = Els.editor.getContext('2d');
 	Ctx.transparency = Els.transparency.getContext('2d');
-	
+
 	// brush
 	Tool = "brush";
 	Brush.color = Els.colorWell.value; // default color
 	Ctx.editor.fillStyle = Els.colorWell.value; // default color
-	Brush.size = 16; // pixels
-	
+	Els.brushSizeSelect.addEventListener("change", updateBrushSize, false);
+
 	init();
-	
+
 	// color well
 	Els.colorWell.addEventListener("change", updateColor, false); // update the brush color upon color change
 	Els.colorWell.select();
-	
+
 	// local storage
 	setLocaStorageSetting(); // radio button
 	loadCurrentArt(); // load art if setting is on
-	
+
 	// canvas event listeners (for painting)
 	Els.editor.addEventListener("mousemove", paint); // paint tile if mouse is moved (checks if mouse is down)
 	Els.editor.addEventListener("mousedown", mouseDown); // mouse set to down
@@ -70,18 +71,17 @@ function setup() {
 //
 
 function init() {
-	setCanvasSizeVariables(); // set canvas size variables
-	drawTransparency(); // draw transparency grid
+	updateBrushSize(); // set canvas size variables, set brush.size value, and draw transparency grid
 	initImageData();
-	
+
 	// reset undo and redo
 	undoArray = [];
 	redoArray = [];
-	
+
 	// reset metadata
 	Els.artNameInput.value = "";
 	Els.authorInput.value = "";
-	
+
 	// add deep copied version of empty image data to undoArray
 	undoArray.push(deepCopyImageData(ImageData));
 }
@@ -100,10 +100,10 @@ function setCanvasSizeVariables() {
 function drawTransparency() {
 	// clear canvas
 	Ctx.transparency.clearRect(0, 0, Els.transparency.width, Els.transparency.height);
-	
+
 	// set color for drawing
 	Ctx.transparency.fillStyle = "#eeeeee"; // tbd more specific color?
-	
+
 	// for loops to draw squares in checkerboard pattern
 	for (let col = 0; col < canvasSize.cols; col++) {
 		for (let row = col % 2; row < canvasSize.rows; row += 2) {
@@ -116,10 +116,13 @@ function drawTransparency() {
 }
 
 // initialise art variable as a transparent canvas
+// imageData[x][y] gets the (x,y) coord in imageData
 function initImageData() {
+	ImageResolution = 16;
+
 	// reset imageData
 	ImageData = [];
-	
+
 	for (let col = 0; col < canvasSize.cols; col++) {
 		let foo = [];
 		for (let row = 0; row < canvasSize.rows; row++) {
@@ -134,6 +137,8 @@ function initImageData() {
 //
 
 var ImageData = [];
+
+var ImageResolution = 16; // resolution of image data (brush size for each element)
 
 var Brush = {};
 
@@ -162,25 +167,25 @@ var afterMetadataClose; // set to a function that should be called after metadat
 // called on mouse down
 function mouseDown(event) {
 	mouseIsDown = true; // set to down
-	
+
 	if (saving !== false) {
 		// saving selection
 		if (saving.startPos === undefined) {
 			let position = findTile(event);
-			
+
 			// saving start position has not been saved yet
 			saving.startPos = position;
 		}
 	}
 	else {
 		// not saving
-		
+
 		// remove any redos from the player now they are drawing
 		redoArray = [];
-		
+
 		// update selected tool (since it can only be changed before mouseDown is called - not whilst mouse is down)
 		Tool = getSelectedTool();
-		
+
 		paint(event); // initial paint tile (for click)
 	}
 }
@@ -189,10 +194,10 @@ function mouseDown(event) {
 // called on mouse up or leave
 function mouseUp(event) {
 	mouseIsDown = false; // set to up
-	
+
 	if (saving !== false && saving.startPos !== undefined) {
 		// saving selection
-		
+
 		// save finish position for saving
 		let position = findTile(event);
 		saving.finishPos = position;
@@ -211,8 +216,8 @@ function mouseUp(event) {
 		// set image properties from saving variables
 		let clippingX = startPos.col * Brush.size;
 		let clippingY = startPos.row * Brush.size;
-		let imageWidth = finishPos.col * Brush.size - clippingX + Brush.size;
-		let imageHeight = finishPos.row * Brush.size - clippingY + Brush.size;
+		let imageWidth = finishPos.col * Brush.size - clippingX + Number(Brush.size);
+		let imageHeight = finishPos.row * Brush.size - clippingY + Number(Brush.size);
 		// set size of save canvas
 		Els.saveCanvas.width = imageWidth;
 		Els.saveCanvas.height = imageHeight;
@@ -220,10 +225,10 @@ function mouseUp(event) {
 		Els.saveCanvas.getContext('2d').drawImage(Els.editor, clippingX, clippingY, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
 		saveArt(Els.saveCanvas);
 	}
-	
+
 	else {
 		// not saving hence art has been changed; save this version of the art to undoArray
-		
+
 		// check the art has changed
 		if (JSON.stringify(undoArray[undoArray.length-1]) !== JSON.stringify(ImageData)) {
 			// deep copy image data array (so it does not change when in undoArray)
@@ -256,6 +261,13 @@ function updateColor(event) {
 	Ctx.editor.fillStyle = event.target.value; // update canvas fill color
 }
 
+// update brush size and transparency background
+function updateBrushSize() {
+	Brush.size = Els.brushSizeSelect.options[Els.brushSizeSelect.selectedIndex].value; // brush size
+	setCanvasSizeVariables();
+	drawTransparency(); // background
+}
+
 // init art selection save
 function saveArtSelection() {
 	// check that nothing is being currently saved
@@ -274,11 +286,11 @@ function saveArt(canvas) {
 	imgEl.id = "savedImage"; // for styling (positioned in centre)
 	// append it to saved image wrapper
 	Els.savedImageWrapper.appendChild(imgEl);
-	
+
 	// set saving variable so the editor is aware that an image is showing
 	// this is set back to closed once the image is dismissed, in order to stop two images being shown at once
 	saving = "saved";
-	
+
 	// show the whole wrapper (image and close button)
 	Els.savedImageWrapper.hidden = false;
 }
@@ -289,10 +301,10 @@ function closeSavedArt() {
 	if (element !== null) {
 		// there is a saved image showing
 		element.parentNode.removeChild(element); // remove it
-		
+
 		// reset saving variable so user can draw again
 		saving = false;
-	
+
 		// hide the whole wrapper (image and close button)
 		Els.savedImageWrapper.hidden = true;
 	}
@@ -313,7 +325,7 @@ function setDimensions() {
 		// take inputs
 		let width = parseInt(prompt("Please enter pixel width value for canvas (leave blank to remain the same)"));
 		let height = parseInt(prompt("Please enter height width value for canvas (leave blank to remain the same)"));
-		
+
 		resizeCanvas(width, height);
 	}
 }
@@ -327,20 +339,20 @@ function resetCanvas() {
 	}
 }
 
-// open and init local storage inport menu
+// open and init local storage import menu
 function loadArtLocalMenu(canvas) {
 	if (confirmLocalStorage()) {
 		// local storage enabled
-		
+
 		// parse the array of saved art so .metadata and .imageData can be accessed for each element
 		let savedArtArray = parseArtArray(localStorage.getItem("savedArt"));
-		
+
 		if (savedArtArray !== null) {
 			// art has been saved before
-			
+
 			// init the menu
 			loadArtLocalMenuUpdate(savedArtArray);
-			
+
 			// show the whole wrapper
 			Els.loadArtLocalWrapper.hidden = false;
 		}
@@ -356,7 +368,7 @@ function loadArtLocalMenu(canvas) {
 function loadArtLocalMenuUpdate(savedArtArray) {
 	// wipe the previously generated saved art list
 	Els.savedArtList.innerHTML = "";
-	
+
 	if (savedArtArray == null || savedArtArray.length === 0) {
 		// parameter is undefined, null, or empty (double equals are intentional to catch undefined)
 		// no art to display; display a nice message instead
@@ -365,7 +377,7 @@ function loadArtLocalMenuUpdate(savedArtArray) {
 	else {
 		// now add art to the saved art list from the saved art array
 		for (let i = 0; i < savedArtArray.length; i++) {
-			
+
 			// delete art from local storage element
 			let deleteArtElement = document.createElement('span');
 			// styling
@@ -375,7 +387,7 @@ function loadArtLocalMenuUpdate(savedArtArray) {
 			deleteArtElement.onclick = createArtDeleteOnclick(savedArtArray[i].metadata.name);
 			// add the element!
 			Els.savedArtList.appendChild(deleteArtElement);
-			
+
 			// list element the art is contained in
 			let listElement = document.createElement('li');
 			// add onclick to load the art
@@ -398,7 +410,7 @@ function saveArtJSON() {
 
 		// get the art's JSON
 		let artJSON = getArtJSON();
-		
+
 		// create the file
 		let filename = "art.json";
 		let blob = new Blob([artJSON], {type: 'text/plain'});
@@ -420,13 +432,13 @@ function saveArtJSON() {
 // called once an uploaded file has been confirmed
 function readUploadedFile() {
 	const file = Els.artInput.files[0];
-	
+
 	if (file !== undefined) {
 		// set up new file reader
 		let reader = new FileReader();
-		
+
 		let fileContents;
-		
+
 		// called by readAsText
 		reader.onload = (function(e) {
 			contents = e.target.result;
@@ -485,8 +497,8 @@ function findTile(event) {
 // sets a tile and renders this change onto the editor canvas
 function setTile(position) {
 	// update imagedata
-	setImageData(position, Brush.color);
-	
+	setImageData(position, Brush.color, Brush.size);
+
 	// draw change onto editor canvas
 	Ctx.editor.fillRect(position.col * Brush.size, position.row * Brush.size, Brush.size, Brush.size);
 }
@@ -494,8 +506,8 @@ function setTile(position) {
 // sets a tile and renders this change onto the editor canvas
 function eraseTile(position) {
 	// update imagedata
-	setImageData(position, undefined); // undefined = transparent
-	
+	setImageData(position, undefined, Brush.size); // undefined = transparent
+
 	// draw change onto editor canvas
 	Ctx.editor.clearRect(position.col * Brush.size, position.row * Brush.size, Brush.size, Brush.size);
 }
@@ -504,13 +516,13 @@ function eraseTile(position) {
 // addToUndo is a boolean of whether the cleared canvas should be saved to undo
 function clearCanvas(addToUndo) {
 	Ctx.editor.clearRect(0, 0, Els.editor.width, Els.editor.height);
-	
+
 	// reset image data
 	initImageData();
-	
+
 	// save to local storage if user has setting enabled (so they can refesh and it is also cleared)
 	saveCurrentArt();
-	
+
 	if (addToUndo) {
 		// add deep copied version of empty image data to undoArray
 		undoArray.push(deepCopyImageData(ImageData));
@@ -522,31 +534,31 @@ function clearCanvas(addToUndo) {
 function resizeCanvas(width, height) {
 	if (!isNaN(width) && width > 0) {
 		// valid width value
-		
+
 		// round to brush size
 		width = Math.ceil(width/Brush.size)*Brush.size;
-		
+
 		// resize canvases
 		Els.editor.width = width;
 		Els.transparency.width = width;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
-	
+
 	if (!isNaN(height) && height > 0) {
 		// valid height value
-		
+
 		// round to brush size
 		height = Math.ceil(height/Brush.size)*Brush.size;
-		
+
 		// resize canvases
 		Els.editor.height = height;
 		Els.transparency.height = height;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
-	
+
 	// update varibles etc.
 	init();
-	
+
 	Ctx.editor.fillStyle = Els.colorWell.value;
 }
 
@@ -557,16 +569,16 @@ function resizeCanvas(width, height) {
 function undo() {
 	if (undoArray.length > 1) {
 		// there is something to undo
-		
+
 		// draw the image data
 		// undo[undo.length - 1] is the current image
 		drawImageData(undoArray[undoArray.length - 2]);
-		
+
 		// move the last element of undo to redo and deep copy it
 		let toRedo = deepCopyImageData(undoArray.pop());
-		
+
 		redoArray.push(toRedo);
-			
+
 		// deep copy undo array (pop breaks deep copy)
 		undoArray = undoArray.map(function(arr) {
 			return deepCopyImageData(arr);
@@ -577,15 +589,15 @@ function undo() {
 function redo() {
 	if (redoArray.length > 0) {
 		// there is something to redo
-		
+
 		// draw the image data
 		drawImageData(redoArray[redoArray.length - 1]);
-		
+
 		// move the last element of redo to undo and deep copy it
 		let toUndo = deepCopyImageData(redoArray.pop());
-		
+
 		undoArray.push(toUndo);
-			
+
 		// deep copy redo array and its elements of 2d arrays (pop breaks deep copy)
 		redoArray = redoArray.map(function(arr) {
 			return deepCopyImageData(arr);
@@ -594,86 +606,238 @@ function redo() {
 }
 
 //
+// Import
+//
+
+// called with (parsed) metadata and image data to be imported
+function importArt(metadata, imageData) {
+	// import brush size
+	importBrushSize(metadata);
+	// import the image data
+	importImageData(imageData);
+	// import the metadata
+	importMetadata(metadata);
+}
+
+//
 // Image data functions
 //
 
 // find approx ImageData size: https://stackoverflow.com/a/11900218/9713957
 
-function setImageData(position, value) {
-	ImageData[position.col][position.row] = value;
-}
+// value = colour
+// size = brush size
+function setImageData(position, value, size) {
+	let sizeFactor = size/ImageResolution; // bigger = more entries in ImageData need to be changed
 
-// draw the image data parameter onto the canvas
-function drawImageData(data) {
-	// check parameter is not null
-	if (data !== null) {
-		clearCanvas(false);
-		
-		for (let col = 0; col < data.length; col++) { // iterate through columns
-			for (let row = 0; row < data[col].length; row++) { // iterate through rows
-				if (data[col][row] !== undefined && data[col][row] !== null) {
-					// not a transparent pixel
-					// set fill colour
-					Ctx.editor.fillStyle = data[col][row];
-					// 16 is the default brush size (size stored by ImageData)
-					Ctx.editor.fillRect(col * 16, row * 16, 16, 16);
+	if (sizeFactor === 1) {
+		// nothing else we need to do here
+		ImageData[position.col][position.row] = value;
+	}
+	else {
+		// convert row and col in editor grid to row and col in imageData
+		let imageDataX = position.col * sizeFactor;
+		let imageDataY = position.row * sizeFactor;
+
+		// now handle based on if brush is bigger or smaller than resolution
+
+		if (sizeFactor > 1) {
+			// fill in multiple tiles
+			// the new col and row (imageDataX and Y) are at the bottom-right of the squares being drawn in
+			for (let x = imageDataX; x < imageDataX+sizeFactor; x++) {
+				// iterate through x
+				for (let y = imageDataY; y < imageDataY+sizeFactor; y++) {
+					// iterate through y
+					ImageData[x][y] = value;
 				}
 			}
 		}
-		
-		// update image data
-		ImageData = data;
-		
-		// save to local storage if user has setting enabled (so they can refesh and it is still there)
-		saveCurrentArt();
-		
-		// reset fill colour to what it was
-		Ctx.editor.fillStyle = Brush.color;
+
+		else if (sizeFactor < 1) {
+			// index in imageData will be split up into an array (if it hasn't already been)
+
+			// indices in imageData that the pixel will be drawn in
+			let indexX = Math.floor(imageDataX);
+			let indexY = Math.floor(imageDataY);
+
+			// array of indices (0-4) that pixel will be drawn in for imageData nested arrays
+			// indexX and indexY are of course expections to the 0-3
+			// e.g. ImageData[indexX][indexY][splitIndices[2]][splitIndices[3]]...[splitIndices[end]]
+			let splitIndices = [indexX, indexY];
+
+			let imageDataMultiplier = 1; // used to calculate splitIndices, incrememented by factors of 2 in while loop
+
+			// repeat for each factor of 2 smaller, multiplying sizeFactor by 2 each loop
+			// repeats until it has split it down enough
+			while (sizeFactor < 1) {
+				// find value that needs to be split up
+				let valueToBeSplit = ImageData;
+				for (let i = 0; i < splitIndices.length-1; i++) {
+					valueToBeSplit = valueToBeSplit[splitIndices[i]];
+				}
+
+				// length -1 because we do not want to completely index into array
+				// this is because we want to still keep a pointer to the initial array in the value we are editing
+
+				// for the sake of brevity
+				let finalSplitIndex = splitIndices[splitIndices.length-1];
+
+				// split into 4 serparate elements if it hasn't been already
+				if (!Array.isArray(valueToBeSplit[finalSplitIndex])) {
+					// can be split
+					let oldValue = valueToBeSplit[finalSplitIndex];
+					valueToBeSplit[finalSplitIndex] = [oldValue, oldValue, oldValue, oldValue];
+					// can now be accessed by ImageData[col][row][0-3]
+					// [index 0, index 1]
+					// [index 2, index 3]
+				}
+
+
+				// now find the new finalSplitIndex
+				// find whether drawn pixel is in top/bottom left/right of this new array
+				let furtherSplitIndex;
+				if (imageDataY % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+					// top
+					furtherSplitIndex = 0;
+				}
+				else {
+					// bottom
+					furtherSplitIndex = 2;
+				}
+				if (imageDataX % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+					// left
+				}
+				else {
+					// right
+					furtherSplitIndex++;
+				}
+
+				// push the index (0-3) that the drawn pixel is
+				splitIndices.push(furtherSplitIndex);
+
+				sizeFactor *= 2;
+				imageDataMultiplier *= 2;
+			}
+
+			// set the pixel!
+			let valueToBeSet = ImageData;
+			for (let i = 0; i < splitIndices.length-1; i++) {
+				valueToBeSet = valueToBeSet[splitIndices[i]];
+			}
+
+			// length -1 because we do not want to completely index into array
+			// this is because we want to still keep a pointer to the initial array in the value we are editing
+
+			// for the sake of brevity
+			let finalSplitIndex = splitIndices[splitIndices.length-1];
+
+			valueToBeSet[finalSplitIndex] = value;
+		}
 	}
 }
 
 // draw the image data parameter onto the canvas
-// also resizes canvas to size of image data, and re-inits canvas (e.g. removes undo and redo history)
-// init = if it was called on init
-function importImageData(data, init) {
+// init = if it was called on init (called by importImageData)
+function drawImageData(data, init) {
 	// check parameter is not null
 	if (data !== null) {
-		// resize the canvas to the imagedata's size
-		// also re-inits the canvas
-		resizeCanvas(data.length * 16, data[0].length * 16);
-		
-		// now draw the image data on the canvas
+		if (!init) { // has already been cleared if init
+			clearCanvas(false);
+		}
+
 		for (let col = 0; col < data.length; col++) { // iterate through columns
 			for (let row = 0; row < data[col].length; row++) { // iterate through rows
 				if (data[col][row] !== undefined && data[col][row] !== null) {
 					// not a transparent pixel
-					// set fill colour
+					// set fill color
 					Ctx.editor.fillStyle = data[col][row];
-					// 16 is the default brush size (size stored by ImageData)
-					Ctx.editor.fillRect(col * 16, row * 16, 16, 16);
+
+					if (Array.isArray(data[col][row])) {
+						// smaller brush size than resolution of ImageData has been used
+						drawSmallBrushSizeData(data[col][row], col * ImageResolution, row * ImageResolution, ImageResolution);
+					}
+					else {
+						Ctx.editor.fillRect(col * ImageResolution, row * ImageResolution, ImageResolution, ImageResolution);
+					}
 				}
 			}
 		}
-		
+
 		// update image data
 		ImageData = data;
-		
-		if (init === false) { // if init is true, importImageData was called by saved local art - do not save again
+
+		if (!init) { // if init is true, importImageData was called by saved local art - do not save again
 			// save to local storage if user has setting enabled (so they can refesh and it is still there)
 			saveCurrentArt();
 		}
-		
-		// reset fill colour to what it was
+
+		// reset fill color to what it was
 		Ctx.editor.fillStyle = Brush.color;
+	}
+}
+
+// called by drawImageData (and itself)
+// draw imageData where it has been split into an array for smaller brush sizes than its resolution
+// data = the 4 element array (some of these elements could be further 4 element arrays, where recursion will be used)
+// x and y are the positions of the top-left of the data parameter
+// size is the width and height of the data paramenter (thus is divided by 2 for the individual array components)
+function drawSmallBrushSizeData(data, x, y, size) {
+	if (!Array.isArray(data) || data.length !== 4) {
+		console.error("Invalid data parameter passed in to drawSmallBrushSizeData.");
+	}
+	else {
+		for (let i = 0; i < data.length; i++) {
+			// find x and y of "sub pixel" to be drawn
+			// position from array index:
+			// [0, 1]
+			// [2, 3]
+			let subPixelX = x;
+			let subPixelY = y;
+			if (i % 2 === 1) {
+				// right
+				subPixelX = x + size/2;
+			}
+			if (i > 1) {
+				// bottom
+				subPixelY = y + size/2;
+			}
+
+			if (Array.isArray(data[i])) {
+				// run recursively to draw nested array
+				drawSmallBrushSizeData(data[i], subPixelX, subPixelY, size/2)
+			}
+			else {
+				// draw
+				if (data[i] !== undefined && data[i] !== null) {
+					// not a transparent colour
+					// set fill colour
+					Ctx.editor.fillStyle = data[i];
+					Ctx.editor.fillRect(subPixelX, subPixelY, size/2, size/2);
+				}
+			}
+		}
+	}
+}
+
+// draw the image data parameter onto the canvas
+// should be called AFTER importMetadata because ImageResolution must have been set
+// also resizes canvas to size of image data, and re-inits canvas (e.g. removes undo and redo history)
+// init = if it was called on init
+function importImageData(data) {
+	// check parameter is not null
+	if (data !== null) {
+		// resize the canvas to the imagedata's size
+		// also re-inits the canvas
+		resizeCanvas(data.length * ImageResolution, data[0].length * ImageResolution);
+
+		drawImageData(data, true);
 	}
 }
 
 // returns a deep copy of the 2d array parameter (so it does not change when in undoArray/redoArray)
 function deepCopyImageData(data) {
-	data = data.map(function(arr) {
-		return arr.slice();
-	});
-	
+	data = JSON.parse(JSON.stringify(data));
+
 	return data;
 }
 
@@ -699,7 +863,7 @@ function stringifyArray(array) {
 			obj[i] = element;
 		}
 	});
-	
+
 	return JSON.stringify(obj);
 }
 
@@ -707,7 +871,7 @@ function stringifyArray(array) {
 function parseArray(json) {
 	// parse the stringified object into an object
 	let obj = JSON.parse(json);
-	
+
 	if (obj !== null) {
 		let arr = [];
 		// convert object to array
@@ -722,7 +886,7 @@ function parseArray(json) {
 			catch (e) {
 				contents = null;
 			}
-			
+
 			if (typeof contents === "object" && contents !== null) {
 				// element is an object
 				// for multidimensional arrays
@@ -744,13 +908,13 @@ function parseArray(json) {
 // stringify metadata and imageData from parameter
 function stringifyArtObject(art) {
 	let artJSON = art;
-	
+
 	// deep copy to avoid the parameter's variable being changed as well
 	let copiedArray = deepCopyImageData(artJSON.imageData);
 	artJSON.imageData = stringifyArray(copiedArray);
-	
+
 	artJSON = JSON.stringify(artJSON);
-	
+
 	return artJSON;
 }
 
@@ -759,18 +923,19 @@ function getArtJSON() {
 	let artName = Els.artNameInput.value;
 	let authorName = Els.authorInput.value;
 	let date = getDate();
-	
+
 	let artJSON = {};
 	artJSON.metadata = {
 		name: artName,
 		author: authorName,
 		editorVersion: EditorVersion,
 		date: date,
+		resolution: ImageResolution,
 	};
 	artJSON.imageData = ImageData;
-	
+
 	artJSON = stringifyArtObject(artJSON);
-	
+
 	return artJSON;
 }
 
@@ -778,9 +943,9 @@ function getArtJSON() {
 function parseArtJSON(artJSON) {
 	if (artJSON !== null) {
 		artJSON = JSON.parse(artJSON);
-		
+
 		artJSON.imageData = parseArray(artJSON.imageData);
-		
+
 		return artJSON;
 	}
 	return artJSON;
@@ -802,7 +967,7 @@ function parseArtArray(artArray) {
 			artArray[i].imageData = parseArray(artArray[i].imageData)
 		}
 	}
-	
+
 	return artArray;
 }
 
@@ -810,7 +975,7 @@ function parseArtArray(artArray) {
 // art data = object of metadata and imageData
 function stringifyArtArray(artArray) {
 	let jsonArray = [];
-	
+
 	// parse art objects first
 	for (let i = 0; i < artArray.length; i++) {
 		// check it is object (some elements might already be stringified)
@@ -822,23 +987,22 @@ function stringifyArtArray(artArray) {
 			jsonArray.push(artArray[i]);
 		}
 	}
-	
+
 	if (jsonArray.length === 0) {
 		jsonArray = JSON.stringify(null);
 	}
 	else {
 		jsonArray = stringifyArray(jsonArray); // stringify to object
 	}
-	
+
 	return jsonArray;
 }
 
 // return function that loads the imageData at the parameter
 function createArtLoadOnclick(imageData, metadata) {
 	return function () {
-		// import the imageData
-		importImageData(imageData);
-		importMetadata(metadata);
+		// import the imageData and metadata
+		importArt(metadata, imageData);
 		// close the import art page
 		Els.loadArtLocalWrapper.hidden = true;
 	}
@@ -847,8 +1011,7 @@ function createArtLoadOnclick(imageData, metadata) {
 // load art from its JSON
 function loadArtJSON(json) {
 	let obj = parseArtJSON(json);
-	importImageData(obj.imageData);
-	importMetadata(obj.metadata);
+	importArt(obj.metadata, obj.imageData);
 }
 
 // return function that deletes art of name in parameter from local storage
@@ -910,10 +1073,7 @@ function loadCurrentArt() {
 		// draw the image and set image data
 		let newArt = parseArtJSON(localStorage.getItem("currentArt"));
 		if (newArt !== null) {
-			// import the image data
-			importImageData(newArt.imageData, true);
-			// import the metadata
-			importMetadata(newArt.metadata);
+			importArt(newArt.metadata, newArt.imageData);
 		}
 	}
 }
@@ -923,14 +1083,14 @@ function loadCurrentArt() {
 function saveArtLocal() {
 	if (confirmLocalStorage()) {
 		// local storage enabled
-		
+
 		if (confirmMetadata(saveArtLocal)) {
 			// metadata is fine
-			
+
 			// get the art's JSON
 			// stringifyArtArray ignores that this is already JSON (doesn't matter)
 			let artJSON = getArtJSON();
-			
+
 			// get saved art array
 			// completely parsing it helps with stringifyArtArray
 			let artArray = parseArtArray(localStorage.getItem("savedArt"));
@@ -938,16 +1098,16 @@ function saveArtLocal() {
 				// has not been initialised yet
 				artArray = [];
 			}
-			
+
 			artArray.push(artJSON);
-			
+
 			// update local storage
 			localStorage.setItem("savedArt", stringifyArtArray(artArray));
-			
+
 			// friendly alert
 			alert("Art saved successfully!");
 		}
-		
+
 	}
 }
 
@@ -961,7 +1121,7 @@ function saveArtLocal() {
 function confirmMetadata(callback) {
 	let artName = Els.artNameInput.value;
 	let authorName = Els.authorInput.value;
-	
+
 	if (artName === "" || authorName === "") {
 		// make them set the metadata first
 		alert("You must enter metadata for the art first.");
@@ -969,7 +1129,7 @@ function confirmMetadata(callback) {
 		afterMetadataClose = callback;
 		// open the page
 		Els.metadataWrapper.hidden = false;
-		
+
 		return false;
 	}
 	return true;
@@ -980,10 +1140,10 @@ function confirmMetadata(callback) {
 function metadataClosed() {
 	// close the page
 	Els.metadataWrapper.hidden = true;
-	
+
 	// save the changed metadata
 	saveCurrentArt();
-	
+
 	// call any function that should now be called
 	if (afterMetadataClose !== undefined) {
 		let callback = afterMetadataClose;
@@ -993,40 +1153,56 @@ function metadataClosed() {
 }
 
 // load metadata from an object containing name and author
+// called after importImageData
 function importMetadata(metadataObj) {
 	Els.artNameInput.value = metadataObj.name;
 	Els.authorInput.value = metadataObj.author;
+}
+
+// load brush size and resolution metadata from an object
+// called before importImageData
+function importBrushSize(metadataObj) {
+	ImageResolution = "16";
+	// update selected value in drop down list
+	/*for (let i = 0; i < Els.brushSizeSelect.options.length; i++) {
+		if (Els.brushSizeSelect.options[i].value === ImageResolution) {
+			Els.brushSizeSelect.options[i].selected = true;
+			break;
+		}
+	}*/
+	// update brush size, transparency, etc.
+	updateBrushSize();
 }
 
 // returns date and time string for metadata
 function getDate() {
 	let dateString = "";
 	let d = new Date();
-	
+
 	let date = d.getDate();
 	if (date < 10) {
 		date = "0" + date;
 	}
 	dateString += date + "/";
-	
+
 	let month = d.getMonth() + 1; // months start at 0
 	if (month < 10) {
 		month = "0" + month;
 	}
 	dateString += month + "/";
 	dateString += d.getFullYear() + ", ";
-	
+
 	let hours = d.getHours();
 	if (hours < 10) {
 		hours = "0" + hours;
 	}
 	dateString += hours + ":";
-	
+
 	let mins = d.getMinutes();
 	if (mins < 10) {
 		mins = "0" + mins;
 	}
 	dateString += mins;
-	
+
 	return dateString;
 }

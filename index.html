@@ -22,11 +22,22 @@
 				<input type="color" value="#000099" id="colorWell">
 			</div>
 
+			<div id="brushSizeWrapper">
+				<label for="brushSizeSelect">Brush Size:</label>
+				<select id="brushSizeSelect">
+	  				<option value="4">4</option>
+	  				<option value="8">8</option>
+					<option value="16" selected="selected">16</option>
+	  				<option value="32">32</option>
+	  				<option value="64">64</option>
+				</select>
+			</div>
+
 			<div id="undoRedoWrapper">
 				<input type="button" id="undoButton" value="Undo" onclick="undo()">
 				<input type="button" id="redoButton" value="Redo" onclick="redo()">
 			</div>
-			
+
 			<input type="button" id="editMetadataButton" value="Edit metadata" onclick="Els.metadataWrapper.hidden = false;">
 
 			<div id="toolsWrapper">
@@ -34,7 +45,7 @@
 				<input type="radio" name="tool" value="brush" checked> Brush<br>
 				<input type="radio" name="tool" value="eraser"> Eraser<br>
 			</div>
-			
+
 			<div id="canvasSettingsWrapper">
 				<h3>Canvas</h3>
 				<input type="button" id="clearAll" value="Clear canvas" onclick="clearAll()">
@@ -72,40 +83,40 @@
 
 	<div class="saveWrapper" id="metadataWrapper" hidden> <!-- out of document flow - placed on top -->
 		<!-- shown when saving art to local storage -->
-		
+
 		<span class="closeButton" id="closeMetadata" onclick="Els.metadataWrapper.hidden = true">✕</span> <!-- close button -->
-		
+
 		<h1>Set image metadata</h1>
-		
+
 		<label for="artNameInput">Art name:</label>
 		<input type="text" id="artNameInput">
-		
+
 		<label for="author">Author:</label>
 		<input type="text" id="authorInput">
-		
+
 		<input type="button" id="confirmMetadata" value="Save!" onclick="metadataClosed()">
 	</div>
 
 	<div class="saveWrapper" id="loadArtLocalWrapper" hidden> <!-- out of document flow - placed on top -->
 		<!-- shown when loading art from local storage -->
-		
+
 		<span class="closeButton" id="closeLocalStorageImport" onclick="Els.loadArtLocalWrapper.hidden = true">✕</span> <!-- close button -->
-		
+
 		<h1>Load from local storage</h1>
-		
+
 		<!-- locally saved art is added here -->
 		<ul id="savedArtList"></ul>
 	</div>
 
 	<div class="saveWrapper" id="loadArtJSONWrapper" hidden> <!-- out of document flow - placed on top -->
 		<!-- shown when loading art from JSON file -->
-		
+
 		<span class="closeButton" id="closeLoadArtJSON" onclick="Els.loadArtJSONWrapper.hidden = true">✕</span> <!-- close button -->
-		
+
 		<h1>Upload an art file</h1>
-		
+
 		<input type="file" id="artInput">
-		
+
 		<input type="button" id="confirmLoadArtJSON" value="Upload!" onclick="readUploadedFile()">
 	</div>
 
