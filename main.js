@@ -1,4 +1,4 @@
-const EditorVersion = "0.4.0"
+const EditorVersion = "0.4.1";
 
 //
 // Setup
@@ -24,6 +24,7 @@ function setup() {
 	// settings
 	Els.toolButtons = document.getElementsByName("tool"); // tool setting radio buttons
 	Els.colorWell = document.querySelector("#colorWell"); // color well
+	Els.colorHexInput = document.querySelector("#colorHexInput"); // hexadecimal input of color
 	Els.brushSizeSelect = document.querySelector("#brushSizeSelect"); // brush size
 	Els.localStoreEnabled = document.querySelector("#localStoreEnabled"); // local storage on setting
 
@@ -51,9 +52,10 @@ function setup() {
 
 	init();
 
-	// color well
-	Els.colorWell.addEventListener("change", updateColor, false); // update the brush color upon color change
+	// update the brush color upon color change
+	Els.colorWell.addEventListener("change", updateColor, false);
 	Els.colorWell.select();
+	Els.colorHexInput.addEventListener("change", updateColor, false);
 
 	// local storage
 	setLocaStorageSetting(); // radio button
@@ -86,15 +88,6 @@ function init() {
 	undoArray.push(deepCopyImageData(ImageData));
 }
 
-// set canvas size variable
-// cols = drawable squares in x axis
-// rows = drawable squares in y axis
-// called on init and whenever brush size changes
-function setCanvasSizeVariables() {
-	canvasSize.cols = Els.editor.width / Brush.size;
-	canvasSize.rows = Els.editor.height / Brush.size;
-}
-
 // fill transparency grid background (grey and white)
 // called on init and whenever brush size changes
 function drawTransparency() {
@@ -104,9 +97,12 @@ function drawTransparency() {
 	// set color for drawing
 	Ctx.transparency.fillStyle = "#eeeeee"; // tbd more specific color?
 
+	let cols = Els.editor.width / Brush.size;
+	let rows = Els.editor.height / Brush.size;
+
 	// for loops to draw squares in checkerboard pattern
-	for (let col = 0; col < canvasSize.cols; col++) {
-		for (let row = col % 2; row < canvasSize.rows; row += 2) {
+	for (let col = 0; col < cols; col++) {
+		for (let row = col % 2; row < rows; row += 2) {
 			// +=2 to make every other square grey
 			// starting position alternates between 0 and 1
 			Ctx.transparency.fillRect(col * Brush.size + 1, row * Brush.size + 1, Brush.size, Brush.size);
@@ -123,9 +119,12 @@ function initImageData() {
 	// reset imageData
 	ImageData = [];
 
-	for (let col = 0; col < canvasSize.cols; col++) {
+	let cols = Els.editor.width / 16;
+	let rows = Els.editor.height / 16;
+
+	for (let col = 0; col < cols; col++) {
 		let foo = [];
-		for (let row = 0; row < canvasSize.rows; row++) {
+		for (let row = 0; row < rows; row++) {
 			foo[row] = undefined; // undefined = transparent
 		}
 		ImageData[col] = foo;
@@ -151,8 +150,6 @@ var Ctx = {}; // canvas contexts
 var mouseIsDown = false; // set to false when mouse is up (on editor canvas) and true when it is down
 
 var saving = false; // set to the save dimensions when the image is in the process of being saved
-
-var canvasSize = {};
 
 var undoArray = []; // array of previous canvas state ImageDatas (saved on mouse up)
 var redoArray = []; // array of future canvas state ImageDatas (added to by undo function and wiped on mouse down)
@@ -186,7 +183,13 @@ function mouseDown(event) {
 		// update selected tool (since it can only be changed before mouseDown is called - not whilst mouse is down)
 		Tool = getSelectedTool();
 
-		paint(event); // initial paint tile (for click)
+		if (Tool === "colorPicker") {
+			// set color to picked color
+			setColor(getTile(event));
+		}
+		else {
+			paint(event); // initial paint tile (for click)
+		}
 	}
 }
 
@@ -226,8 +229,8 @@ function mouseUp(event) {
 		saveArt(Els.saveCanvas);
 	}
 
-	else {
-		// not saving hence art has been changed; save this version of the art to undoArray
+	else if (Tool !== "colorPicker") {
+		// not saving nor colorpicking hence art has been changed; save this version of the art to undoArray
 
 		// check the art has changed
 		if (JSON.stringify(undoArray[undoArray.length-1]) !== JSON.stringify(ImageData)) {
@@ -255,16 +258,27 @@ function getSelectedTool() {
 	}
 }
 
-// update brush color
+// set brush color (called from color picker element with event object)
 function updateColor(event) {
-	Brush.color = event.target.value;
-	Ctx.editor.fillStyle = event.target.value; // update canvas fill color
+	setColor(event.target.value);
+}
+
+// set brush color
+function setColor(color) {
+	// test color is a hexadecimal value
+	let regExp = new RegExp(/^#[0-9A-F]{6}$/i);
+	if (regExp.test(color)) {
+		// is a hex value
+		Brush.color = color;
+		Ctx.editor.fillStyle = color; // update canvas fill color
+		Els.colorWell.value = color; // update value shown on color well
+		Els.colorHexInput.value = color; // update value in hexadecimal input
+	}
 }
 
 // update brush size and transparency background
 function updateBrushSize() {
 	Brush.size = Els.brushSizeSelect.options[Els.brushSizeSelect.selectedIndex].value; // brush size
-	setCanvasSizeVariables();
 	drawTransparency(); // background
 }
 
@@ -412,18 +426,18 @@ function saveArtJSON() {
 		let artJSON = getArtJSON();
 
 		// create the file
-		let filename = "art.json";
-		let blob = new Blob([artJSON], {type: 'text/plain'});
+		let filename = Els.artNameInput.value + ".json";
+		let blob = new Blob([artJSON], {type: "text/plain"});
 		if (window.navigator && window.navigator.msSaveOrOpenBlob) {
 			window.navigator.msSaveOrOpenBlob(blob, filename);
 		}
 		else {
-			let e = document.createEvent('MouseEvents');
-			let a = document.createElement('a');
+			let e = document.createEvent("MouseEvents");
+			let a = document.createElement("a");
 			a.download = filename;
 			a.href = window.URL.createObjectURL(blob);
-			a.dataset.downloadurl = ['text/plain', a.download, a.href].join(':');
-			e.initEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+			a.dataset.downloadurl = ["text/plain", a.download, a.href].join(":");
+			e.initEvent("click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
 			a.dispatchEvent(e);
 		}
 	}
@@ -492,6 +506,51 @@ function findTile(event) {
 	let col = Math.floor(x / Brush.size);
 	let row = Math.floor(y / Brush.size);
 	return {col: col, row: row};
+}
+
+// get the contents of the tile at the mouse's position
+function getTile(event) {
+	let position = findTile(event);
+
+	let sizeFactor = Brush.size/ImageResolution; // used to find x and y in imageData
+
+	let imageDataX = position.col * sizeFactor;
+	let imageDataY = position.row * sizeFactor;
+
+	// indices in imageData that the pixel can be found within
+	let indexX = Math.floor(imageDataX);
+	let indexY = Math.floor(imageDataY);
+
+	let imageDataMultiplier = 1; // used to calculate which array to index into, incrememented by factors of 2 in while loop
+
+	let pixel = ImageData[indexX][indexY];
+
+	// repeat until a color has been found (for smaller brush sizes within a pixel)
+	while (Array.isArray(pixel)) {
+		// find whether selected pixel is in top/bottom left/right of "pixel" variable
+		let pixelLocation;
+		if (imageDataY % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+			// top
+			pixelLocation = 0;
+		}
+		else {
+			// bottom
+			pixelLocation = 2;
+		}
+		if (imageDataX % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+			// left
+		}
+		else {
+			// right
+			pixelLocation++;
+		}
+
+		pixel = pixel[pixelLocation];
+
+		imageDataMultiplier *= 2;
+	}
+
+	return pixel;
 }
 
 // sets a tile and renders this change onto the editor canvas
@@ -625,7 +684,7 @@ function importArt(metadata, imageData) {
 
 // find approx ImageData size: https://stackoverflow.com/a/11900218/9713957
 
-// value = colour
+// value = color
 // size = brush size
 function setImageData(position, value, size) {
 	let sizeFactor = size/ImageResolution; // bigger = more entries in ImageData need to be changed
@@ -660,7 +719,7 @@ function setImageData(position, value, size) {
 			let indexX = Math.floor(imageDataX);
 			let indexY = Math.floor(imageDataY);
 
-			// array of indices (0-4) that pixel will be drawn in for imageData nested arrays
+			// array of indices (0-3) that pixel will be drawn in for imageData nested arrays
 			// indexX and indexY are of course expections to the 0-3
 			// e.g. ImageData[indexX][indexY][splitIndices[2]][splitIndices[3]]...[splitIndices[end]]
 			let splitIndices = [indexX, indexY];
@@ -809,8 +868,8 @@ function drawSmallBrushSizeData(data, x, y, size) {
 			else {
 				// draw
 				if (data[i] !== undefined && data[i] !== null) {
-					// not a transparent colour
-					// set fill colour
+					// not a transparent color
+					// set fill color
 					Ctx.editor.fillStyle = data[i];
 					Ctx.editor.fillRect(subPixelX, subPixelY, size/2, size/2);
 				}
