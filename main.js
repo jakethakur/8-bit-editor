@@ -1,4 +1,4 @@
-const EditorVersion = "0.4.1";
+const EditorVersion = "0.5.0";
 
 //
 // Setup
@@ -168,7 +168,7 @@ function mouseDown(event) {
 	if (saving !== false) {
 		// saving selection
 		if (saving.startPos === undefined) {
-			let position = findTile(event);
+			let position = findTileAtMouse(event, Brush.size);
 
 			// saving start position has not been saved yet
 			saving.startPos = position;
@@ -183,16 +183,22 @@ function mouseDown(event) {
 		// update selected tool (since it can only be changed before mouseDown is called - not whilst mouse is down)
 		Tool = getSelectedTool();
 
+		// paint should not be called if the action does not occur on mouse dragging
 		if (Tool === "colorPicker") {
 			// set color to picked color
-			setColor(getTile(event));
+			// 4 is used as the brush size so that resolution doesn't matter
+			setColor(getTileAtMouse(event));
+		}
+		else if (Tool === "fill") {
+		// 4 is used as the brush size so that resolution doesn't matter
+			fillStart(findTileAtMouse(event, 4));
 		}
 		else {
 			paint(event); // initial paint tile (for click)
+			// note paint is also called on mouse drag, and subsequently calls either setTile or eraseTile
 		}
 	}
 }
-
 
 // called on mouse up or leave
 function mouseUp(event) {
@@ -202,7 +208,7 @@ function mouseUp(event) {
 		// saving selection
 
 		// save finish position for saving
-		let position = findTile(event);
+		let position = findTileAtMouse(event, Brush.size);
 		saving.finishPos = position;
 		// image save popup
 		// the image is copied to another canvas that is set to the desired size - the image on this other cangvas is hence saved
@@ -472,47 +478,47 @@ function readUploadedFile() {
 }
 
 //
-// Canvas functions (tools)
+// Tile finding functions
 //
 
-// paint a tile
-// this function is called on mouse move, hence it needs to check if the mouse is up or down first
-// TBD - possibly inefficient that this is called so often?
-function paint(event) {
-	// check if the mouse is down
-	if (mouseIsDown) {
-		// find cursor row and column
-		let position = findTile(event);
-		if (saving === false) {
-			// only paint when the image is not being saved and a saved image is not shown
-			if (Tool === "brush") {
-				// set the tile's color
-				setTile(position);
-			}
-			else if (Tool === "eraser") {
-				// erase the tile
-				eraseTile(position);
-			}
-		}
-	}
+// take into account scrolled viewport and moved canvas
+function getMouseCoords(event) {
+	let rect = Els.editor.getBoundingClientRect();
+	let x = event.clientX - rect.left;
+	let y = event.clientY - rect.top;
+	return {x: x, y: y};
 }
 
 // find tile to draw, based on mouse position
 // returns object with properties col (column) and row
-function findTile(event) {
-	let rect = Els.editor.getBoundingClientRect(); // take into account scrolled viewport and moved canvas
-	let x = event.clientX - rect.left;
-	let y = event.clientY - rect.top;
-	let col = Math.floor(x / Brush.size);
-	let row = Math.floor(y / Brush.size);
+// based on brush size (returns col and row in the transparency grid)
+// resolution = brush size (detail to look at the canvas)
+function findTileAtMouse(event, resolution) {
+	let mouseCoords = getMouseCoords(event);
+	return findTileAtCoords(mouseCoords.x, mouseCoords.y, resolution);
+}
+
+// find tile at coordinates
+// returns object with properties col (column) and row
+// based on brush size (returns col and row in the transparency grid)
+// resolution = brush size (detail to look at the canvas)
+function findTileAtCoords(x, y, resolution) {
+	let col = Math.floor(x / resolution);
+	let row = Math.floor(y / resolution);
 	return {col: col, row: row};
 }
 
 // get the contents of the tile at the mouse's position
-function getTile(event) {
-	let position = findTile(event);
+// resolution used is the smallest possible (4)
+function getTileAtMouse(event) {
+	return getTile(findTileAtMouse(event, 4), 4);
+}
 
-	let sizeFactor = Brush.size/ImageResolution; // used to find x and y in imageData
+// get the contents of the tile at a specific position (row col object from findTile)
+// note that this could return an object if the brush's size is larger than the resolution of the tile
+// resolution = resolution used to generate tile
+function getTile(position, resolution) {
+	let sizeFactor = resolution/ImageResolution; // used to find x and y in imageData
 
 	let imageDataX = position.col * sizeFactor;
 	let imageDataY = position.row * sizeFactor;
@@ -525,41 +531,210 @@ function getTile(event) {
 
 	let pixel = ImageData[indexX][indexY];
 
-	// repeat until a color has been found (for smaller brush sizes within a pixel)
-	while (Array.isArray(pixel)) {
-		// find whether selected pixel is in top/bottom left/right of "pixel" variable
-		let pixelLocation;
-		if (imageDataY % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
-			// top
-			pixelLocation = 0;
+	// repeat until resolution of returned tile is equal to resolution (for smaller brush sizes within a pixel)
+	for (let size = 16; size > resolution; size /= 2) {
+		if (Array.isArray(pixel)) {
+			// still more that can be indexed into
+
+			// find whether selected pixel is in top/bottom left/right of "pixel" variable
+			let pixelLocation;
+			if (imageDataY % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+				// top
+				pixelLocation = 0;
+			}
+			else {
+				// bottom
+				pixelLocation = 2;
+			}
+			if (imageDataX % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
+				// left
+			}
+			else {
+				// right
+				pixelLocation++;
+			}
+
+			pixel = pixel[pixelLocation];
+
+			imageDataMultiplier *= 2;
 		}
 		else {
-			// bottom
-			pixelLocation = 2;
+			break;
 		}
-		if (imageDataX % (1/imageDataMultiplier) < 0.5 / imageDataMultiplier) {
-			// left
-		}
-		else {
-			// right
-			pixelLocation++;
-		}
-
-		pixel = pixel[pixelLocation];
-
-		imageDataMultiplier *= 2;
 	}
 
 	return pixel;
 }
 
+// returns true or false depending on if the tile is on the canvas
+// position is an object in the same format as the one returned by findTile functions (varies based on brush size)
+// resolution = resolution used to generate position (in findTile)
+function tileIsOnCanvas(position, resolution) {
+	let sizeFactor = resolution / ImageResolution;
+	// indices in image data it can be found in
+	let imageDataX = Math.floor(position.col * sizeFactor);
+	let imageDataY = Math.floor(position.row * sizeFactor);
+
+	if (ImageData.hasOwnProperty(imageDataX) && ImageData[imageDataX].hasOwnProperty(imageDataY)) {
+		return true;
+	}
+	return false;
+}
+
+//
+// Canvas functions (tools)
+//
+
+// paint a tile
+// this function is called on mouse move, hence it needs to check if the mouse is up or down first
+// TBD - possibly inefficient that this is called so often?
+function paint(event) {
+	// check if the mouse is down
+	if (mouseIsDown) {
+		// find cursor row and column
+		let position = findTileAtMouse(event, Brush.size);
+		if (saving === false) {
+			// only paint when the image is not being saved and a saved image is not shown
+			if (Tool === "brush") {
+				// set the tile's color
+				setTile(position, Brush.size);
+			}
+			else if (Tool === "eraser") {
+				// erase the tile
+				eraseTile(position);
+			}
+		}
+	}
+}
+
 // sets a tile and renders this change onto the editor canvas
-function setTile(position) {
+// position is from findTile functions
+function setTile(position, size) {
 	// update imagedata
-	setImageData(position, Brush.color, Brush.size);
+	setImageData(position, Brush.color, size);
 
 	// draw change onto editor canvas
-	Ctx.editor.fillRect(position.col * Brush.size, position.row * Brush.size, Brush.size, Brush.size);
+	Ctx.editor.fillRect(position.col * size, position.row * size, size, size);
+}
+
+// position should contian the col and row of the fill location (from findTileAtMouse())
+// position passed ni is with resolution 4
+function fillStart(position) {
+	let colorBeingFilled = getTile(position, 4); // all tiles of this color within a boundary will be filled
+
+	// calculate less accurate fill position (since filling happens with size 16)
+	let fillPosition = {
+		col: Math.floor(position.col/4),
+		row: Math.floor(position.row/4)
+	};
+
+	fill(fillPosition, undefined, colorBeingFilled, 16);
+}
+
+// recursion function for fillStart (should only be called by fillStart)
+// direction is the direction that the fill came from, so it knows not to start a new fill in the opposite direction (i.e. where it came from)
+// direction 1 = right, 4 = up, moving clockwise...
+// color is the colors that should be replaced by this fill
+// size is the size of the fill (this is decremented by a factor of 2 when an array of smaller colours is reached)
+function fill(position, direction, color, size) {
+	// check tile is on the canvas
+	if (tileIsOnCanvas(position, size)) {
+		let tile = getTile(position, size);
+		if (tile === color) {
+			// tile is of correct color to be filled
+
+			// set the tile to the brush color
+			setTile(position, size);
+
+			// commence fill in other directions
+			if (direction !== 1) {
+				// fill left
+				fill({
+					col: position.col-1,
+					row: position.row,
+				}, 3, color, size);
+			}
+			if (direction !== 4) {
+				// fill down
+				fill({
+					col: position.col,
+					row: position.row+1,
+				}, 2, color, size);
+			}
+			if (direction !== 3) {
+				// fill right
+				fill({
+					col: position.col+1,
+					row: position.row,
+				}, 1, color, size);
+			}
+			if (direction !== 2) {
+				// fill up
+				fill({
+					col: position.col,
+					row: position.row-1,
+				}, 4, color, size);
+			}
+		}
+		// check for array of colours
+		else if (Array.isArray(tile) && size > 4) {
+			// resolution is higher than fill paint size
+			// decrement size and try again in same location
+			size /= 2;
+
+			// update position
+			position.row *= 2;
+			position.col *= 2;
+			// position is now top left
+
+			// decide location in smaller tile based on direction it came from
+			if (direction === 1) {
+				// came from left
+				fill({
+					col: position.col,
+					row: position.row,
+				}, 3, color, size);
+				fill({
+					col: position.col,
+					row: position.row+1,
+				}, 3, color, size);
+			}
+			if (direction === 4) {
+				// came from down
+				fill({
+					col: position.col,
+					row: position.row+1,
+				}, 2, color, size);
+				fill({
+					col: position.col+1,
+					row: position.row+1,
+				}, 2, color, size);
+			}
+			if (direction === 3) {
+				// came from right
+				fill({
+					col: position.col+1,
+					row: position.row,
+				}, 3, color, size);
+				fill({
+					col: position.col+1,
+					row: position.row+1,
+				}, 3, color, size);
+			}
+			if (direction === 2) {
+				// came from up
+				fill({
+					col: position.col,
+					row: position.row,
+				}, 2, color, size);
+				fill({
+					col: position.col+1,
+					row: position.row,
+				}, 2, color, size);
+			}
+		}
+		// if color was not the color to be replaced, this direction of the fill fizzles
+	}
 }
 
 // sets a tile and renders this change onto the editor canvas
@@ -684,6 +859,7 @@ function importArt(metadata, imageData) {
 
 // find approx ImageData size: https://stackoverflow.com/a/11900218/9713957
 
+// position = from findTile functions
 // value = color
 // size = brush size
 function setImageData(position, value, size) {
