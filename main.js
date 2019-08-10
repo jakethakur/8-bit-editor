@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.0";
+const EditorVersion = "0.5.1";
 
 //
 // Setup
@@ -27,6 +27,9 @@ function setup() {
 	Els.colorHexInput = document.querySelector("#colorHexInput"); // hexadecimal input of color
 	Els.brushSizeSelect = document.querySelector("#brushSizeSelect"); // brush size
 	Els.localStoreEnabled = document.querySelector("#localStoreEnabled"); // local storage on setting
+	// texturer
+	Els.texturerCheckbox = document.querySelector("#texturerCheckbox"); // on or off
+	Els.texturerDepth = document.querySelector("#texturerDepth"); // number input - amount to texture by
 
 	// metadata inputs
 	Els.artNameInput = document.querySelector("#artNameInput"); // art name
@@ -47,7 +50,6 @@ function setup() {
 	// brush
 	Tool = "brush";
 	Brush.color = Els.colorWell.value; // default color
-	Ctx.editor.fillStyle = Els.colorWell.value; // default color
 	Els.brushSizeSelect.addEventListener("change", updateBrushSize, false);
 
 	init();
@@ -156,6 +158,8 @@ var redoArray = []; // array of future canvas state ImageDatas (added to by undo
 // the empty image data is added to undoArray by the init function
 
 var afterMetadataClose; // set to a function that should be called after metadata is closed
+
+var previousPaintedTile = {}; // set to the tile that was last painted (row and col)
 
 //
 // Event listener functions
@@ -276,9 +280,9 @@ function setColor(color) {
 	if (regExp.test(color)) {
 		// is a hex value
 		Brush.color = color;
-		Ctx.editor.fillStyle = color; // update canvas fill color
 		Els.colorWell.value = color; // update value shown on color well
 		Els.colorHexInput.value = color; // update value in hexadecimal input
+		// canvas fill color is updated on every tile set (to allow for texturer to work if it is enabled)
 	}
 }
 
@@ -593,8 +597,11 @@ function paint(event) {
 	if (mouseIsDown) {
 		// find cursor row and column
 		let position = findTileAtMouse(event, Brush.size);
-		if (saving === false) {
-			// only paint when the image is not being saved and a saved image is not shown
+		// make sure that last tile painted is not the current tile
+		// and only paint when the image is not being saved and a saved image is not shown
+		if ((position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row)
+		&& saving === false) {
+
 			if (Tool === "brush") {
 				// set the tile's color
 				setTile(position, Brush.size);
@@ -603,6 +610,8 @@ function paint(event) {
 				// erase the tile
 				eraseTile(position);
 			}
+
+			previousPaintedTile = position;
 		}
 	}
 }
@@ -610,8 +619,17 @@ function paint(event) {
 // sets a tile and renders this change onto the editor canvas
 // position is from findTile functions
 function setTile(position, size) {
+	if (Els.texturerCheckbox.checked) {
+		// texturer
+		Ctx.editor.fillStyle = textureColor(Brush.color, Els.texturerDepth.value);
+	}
+	else {
+		// no texturer
+		Ctx.editor.fillStyle = Brush.color;
+	}
+
 	// update imagedata
-	setImageData(position, Brush.color, size);
+	setImageData(position, Ctx.editor.fillStyle, size);
 
 	// draw change onto editor canvas
 	Ctx.editor.fillRect(position.col * size, position.row * size, size, size);
@@ -635,7 +653,7 @@ function fillStart(position) {
 // direction is the direction that the fill came from, so it knows not to start a new fill in the opposite direction (i.e. where it came from)
 // direction 1 = right, 4 = up, moving clockwise...
 // color is the colors that should be replaced by this fill
-// size is the size of the fill (this is decremented by a factor of 2 when an array of smaller colours is reached)
+// size is the size of the fill (this is decremented by a factor of 2 when an array of smaller colors is reached)
 function fill(position, direction, color, size) {
 	// check tile is on the canvas
 	if (tileIsOnCanvas(position, size)) {
@@ -676,7 +694,7 @@ function fill(position, direction, color, size) {
 				}, 4, color, size);
 			}
 		}
-		// check for array of colours
+		// check for array of colors
 		else if (Array.isArray(tile) && size > 4) {
 			// resolution is higher than fill paint size
 			// decrement size and try again in same location
@@ -792,8 +810,46 @@ function resizeCanvas(width, height) {
 
 	// update varibles etc.
 	init();
+}
 
-	Ctx.editor.fillStyle = Els.colorWell.value;
+//
+// Texturer
+//
+
+// random integer between minimum and maximum (inclusive)
+function randomNum (minimum, maximum) {
+    return Math.floor((Math.random() * (maximum - minimum + 1)) + minimum);
+}
+
+// alter a color's hex code
+// color should start with #
+// depth = how much to alter it by (scale from 1 to 10)
+function textureColor(color, depth) {
+	// split into decimal rgb components
+	let r = parseInt(color.substring(1, 3), 16);
+	let g = parseInt(color.substring(3, 5), 16);
+	let b = parseInt(color.substring(5), 16);
+
+	// texture colors
+	r = Math.max(Math.min(r + randomNum(depth * -5, depth * 5), 255), 0);
+	g = Math.max(Math.min(g + randomNum(depth * -5, depth * 5), 255), 0);
+	b = Math.max(Math.min(b + randomNum(depth * -5, depth * 5), 255), 0);
+
+	// convert back to hex
+	r = r.toString(16);
+	g = g.toString(16);
+	b = b.toString(16);
+	if (r.length === 1) {
+		r = "0" + r;
+	}
+	if (g.length === 1) {
+		g = "0" + g;
+	}
+	if (b.length === 1) {
+		b = "0" + b;
+	}
+
+	return "#"+r+g+b;
 }
 
 //
@@ -1005,9 +1061,6 @@ function drawImageData(data, init) {
 			// save to local storage if user has setting enabled (so they can refesh and it is still there)
 			saveCurrentArt();
 		}
-
-		// reset fill color to what it was
-		Ctx.editor.fillStyle = Brush.color;
 	}
 }
 
