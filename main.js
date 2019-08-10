@@ -831,9 +831,10 @@ function textureColor(color, depth) {
 	let b = parseInt(color.substring(5), 16);
 
 	// texture colors
-	r = Math.max(Math.min(r + randomNum(depth * -5, depth * 5), 255), 0);
-	g = Math.max(Math.min(g + randomNum(depth * -5, depth * 5), 255), 0);
-	b = Math.max(Math.min(b + randomNum(depth * -5, depth * 5), 255), 0);
+	let random = randomNum(depth * -5, depth * 5); // textures all colors by the same amount
+	r = Math.max(Math.min(r + random, 255), 0);
+	g = Math.max(Math.min(g + random, 255), 0);
+	b = Math.max(Math.min(b + random, 255), 0);
 
 	// convert back to hex
 	r = r.toString(16);
