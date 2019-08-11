@@ -1,7 +1,7 @@
 body {
 	user-select: none;
 	-moz-user-select: none;
-	
+
 	font-family: 'Aleo', serif;
 }
 
@@ -14,13 +14,21 @@ body {
 	margin: 10px;
 }
 
+canvas {
+	border: 1px solid black;
+}
+
 #transparency {
-	position: absolute; /* positioned on top of editor canvas */
+	position: absolute; /* positioned beneath editor canvas */
+	top: 18px;
+	left: 18px;
 	z-index: -1; /* appears below editor canvas */
 }
 
-#editor {
-	border: 1px solid black;
+#overlay {
+	position: absolute; /* positioned on top of editor canvas */
+	top: 18px;
+	left: 18px;
 }
 
 #settingWrapper {
@@ -40,7 +48,7 @@ body {
 	left: 50%;
 	top: 50%;
 	transform: translate(-50%, -50%);
-	
+
 	border: 1px solid black;
 	background-color: white;
 	padding: 5px;
@@ -49,9 +57,9 @@ body {
 /* art delete button */
 .artDeleteButton {
 	color: red;
-	
+
 	padding-right: 5px;
-	
+
 	position: absolute;
 	right: 0px;
 }
@@ -62,7 +70,7 @@ body {
 	border: 1px solid black;
 	background-color: red;
 	padding: 2px;
-	
+
     top: -15px;
     right: -15px;
 }

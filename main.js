@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.1";
+const EditorVersion = "0.5.2";
 
 //
 // Setup
@@ -13,6 +13,7 @@ function setup() {
 	// canvases
 	Els.editor = document.querySelector("#editor"); // main image canvas (this is exported at the end)
 	Els.transparency = document.querySelector("#transparency"); // transparency canvas
+	Els.overlay = document.querySelector("#overlay"); // overlay canvas (where save selection darkening is drawn)
 	Els.saveCanvas = document.querySelector("#saveCanvas"); // image save canvas (always hidden)
 
 	// hidden elements (shown when a certain menu is opened)
@@ -46,6 +47,9 @@ function setup() {
 	// canvas context
 	Ctx.editor = Els.editor.getContext('2d');
 	Ctx.transparency = Els.transparency.getContext('2d');
+	Ctx.overlay = Els.overlay.getContext('2d');
+
+	Ctx.overlay.globalAlpha = 0.3;
 
 	// brush
 	Tool = "brush";
@@ -64,10 +68,11 @@ function setup() {
 	loadCurrentArt(); // load art if setting is on
 
 	// canvas event listeners (for painting)
-	Els.editor.addEventListener("mousemove", paint); // paint tile if mouse is moved (checks if mouse is down)
-	Els.editor.addEventListener("mousedown", mouseDown); // mouse set to down
-	Els.editor.addEventListener("mouseup", mouseUp); // mouse set to up
-	Els.editor.addEventListener("mouseout", mouseUp); // also set mouse to up when user leaves the canvas with mouse
+	// added to overlay because it is on top
+	Els.overlay.addEventListener("mousemove", paint); // paint tile if mouse is moved (checks if mouse is down)
+	Els.overlay.addEventListener("mousedown", mouseDown); // mouse set to down
+	Els.overlay.addEventListener("mouseup", mouseUp); // mouse set to up
+	Els.overlay.addEventListener("mouseout", mouseUp); // also set mouse to up when user leaves the canvas with mouse
 }
 
 //
@@ -107,7 +112,7 @@ function drawTransparency() {
 		for (let row = col % 2; row < rows; row += 2) {
 			// +=2 to make every other square grey
 			// starting position alternates between 0 and 1
-			Ctx.transparency.fillRect(col * Brush.size + 1, row * Brush.size + 1, Brush.size, Brush.size);
+			Ctx.transparency.fillRect(col * Brush.size, row * Brush.size, Brush.size, Brush.size);
 			// +1 so border is not drawn on
 		}
 	}
@@ -193,7 +198,7 @@ function mouseDown(event) {
 			// 4 is used as the brush size so that resolution doesn't matter
 			setColor(getTileAtMouse(event));
 		}
-		else if (Tool === "fill") {
+		else if (Tool === "fill" || Tool === "eraserFill") {
 		// 4 is used as the brush size so that resolution doesn't matter
 			fillStart(findTileAtMouse(event, 4));
 		}
@@ -297,6 +302,9 @@ function saveArtSelection() {
 	// check that nothing is being currently saved
 	if (saving === false) {
 		saving = {}; // ready for startPos and finishPos to be saved, in the format of an object with row and col parameters
+
+		// fill in overlay canvas
+		Ctx.overlay.fillRect(0, 0, 512, 512);
 	}
 }
 
@@ -331,6 +339,9 @@ function closeSavedArt() {
 
 		// hide the whole wrapper (image and close button)
 		Els.savedImageWrapper.hidden = true;
+
+		// clear overlay canavs
+		Ctx.overlay.clearRect(0, 0, 512, 512);
 	}
 }
 
@@ -598,17 +609,39 @@ function paint(event) {
 		// find cursor row and column
 		let position = findTileAtMouse(event, Brush.size);
 		// make sure that last tile painted is not the current tile
-		// and only paint when the image is not being saved and a saved image is not shown
-		if ((position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row)
-		&& saving === false) {
+		if (position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row) {
 
-			if (Tool === "brush") {
-				// set the tile's color
-				setTile(position, Brush.size);
+			// only paint when the image is not being saved and a saved image is not shown
+			if (saving === false) {
+				if (Tool === "brush") {
+					// set the tile's color
+					setTile(position, Brush.size);
+				}
+				else if (Tool === "eraser") {
+					// erase the tile
+					eraseTile(position, Brush.size);
+				}
 			}
-			else if (Tool === "eraser") {
-				// erase the tile
-				eraseTile(position);
+			else {
+				// change display on overlay canvas to show currently saved area
+				Ctx.overlay.clearRect(0, 0, 512, 512);
+				Ctx.overlay.fillRect(0, 0, 512, 512);
+				// code used to find position and width is same as the code in mouseUp
+				let startPos = {
+					col: Math.min(saving.startPos.col, position.col),
+					row: Math.min(saving.startPos.row, position.row),
+				};
+				let finishPos = {
+					col: Math.max(saving.startPos.col, position.col),
+					row: Math.max(saving.startPos.row, position.row),
+				};
+				let startX = startPos.col * Brush.size;
+				let startY = startPos.row * Brush.size;
+				let finishX = finishPos.col * Brush.size;
+				let finishY = finishPos.row * Brush.size;
+				let width = finishX - startX + Number(Brush.size);
+				let height = finishY - startY + Number(Brush.size);
+				Ctx.overlay.clearRect(startX, startY, width, height);
 			}
 
 			previousPaintedTile = position;
@@ -662,7 +695,14 @@ function fill(position, direction, color, size) {
 			// tile is of correct color to be filled
 
 			// set the tile to the brush color
-			setTile(position, size);
+			if (Tool === "fill") {
+				// fill color
+				setTile(position, size);
+			}
+			else if (Tool === "eraserFill") {
+				// erase
+				eraseTile(position, size);
+			}
 
 			// commence fill in other directions
 			if (direction !== 1) {
@@ -717,7 +757,7 @@ function fill(position, direction, color, size) {
 					row: position.row+1,
 				}, 3, color, size);
 			}
-			if (direction === 4) {
+			else if (direction === 4) {
 				// came from down
 				fill({
 					col: position.col,
@@ -728,7 +768,7 @@ function fill(position, direction, color, size) {
 					row: position.row+1,
 				}, 2, color, size);
 			}
-			if (direction === 3) {
+			else if (direction === 3) {
 				// came from right
 				fill({
 					col: position.col+1,
@@ -739,7 +779,7 @@ function fill(position, direction, color, size) {
 					row: position.row+1,
 				}, 3, color, size);
 			}
-			if (direction === 2) {
+			else if (direction === 2) {
 				// came from up
 				fill({
 					col: position.col,
@@ -750,18 +790,37 @@ function fill(position, direction, color, size) {
 					row: position.row,
 				}, 2, color, size);
 			}
+			else if (direction === undefined) {
+				// fill initialised
+				fill({
+					col: position.col,
+					row: position.row,
+				}, 2, color, size);
+				fill({
+					col: position.col+1,
+					row: position.row,
+				}, 2, color, size);
+				fill({
+					col: position.col,
+					row: position.row+1,
+				}, 3, color, size);
+				fill({
+					col: position.col+1,
+					row: position.row+1,
+				}, 3, color, size);
+			}
 		}
 		// if color was not the color to be replaced, this direction of the fill fizzles
 	}
 }
 
 // sets a tile and renders this change onto the editor canvas
-function eraseTile(position) {
+function eraseTile(position, size) {
 	// update imagedata
-	setImageData(position, undefined, Brush.size); // undefined = transparent
+	setImageData(position, undefined, size); // undefined = transparent
 
 	// draw change onto editor canvas
-	Ctx.editor.clearRect(position.col * Brush.size, position.row * Brush.size, Brush.size, Brush.size);
+	Ctx.editor.clearRect(position.col * size, position.row * size, size, size);
 }
 
 // clears the editor canvas

@@ -12,6 +12,7 @@
 		<div id="canvasWrapper">
 			<canvas id="transparency" width="512" height="512"></canvas>
 			<canvas id="editor" width="512" height="512"></canvas>
+			<canvas id="overlay" width="512" height="512"></canvas> <!-- used for save selection etc. -->
 		</div>
 
 		<div id="settingWrapper">
@@ -20,7 +21,7 @@
 			<div id="colorWellWrapper">
 				<label for="colorWell">Color:</label>
 				<input type="color" value="#000099" id="colorWell">
-				<input type="text" value="#000099" id="colorHexInput" size="4">
+				<input type="text" value="#000099" id="colorHexInput" style="width: 53px">
 			</div>
 
 			<div id="brushSizeWrapper">
@@ -46,6 +47,7 @@
 				<input type="radio" name="tool" value="brush" checked> Brush<br>
 				<input type="radio" name="tool" value="fill"> Fill<br>
 				<input type="radio" name="tool" value="eraser"> Eraser<br>
+				<input type="radio" name="tool" value="eraserFill"> Eraser Fill<br>
 				<input type="radio" name="tool" value="colorPicker"> Color Picker<br><br>
 				<input type="checkbox" id="texturerCheckbox"> Texturer &nbsp;
 				<input type="number" id="texturerDepth" style="width: 40px" min="1" value="5" max="15"> Depth<br>
