@@ -49,8 +49,6 @@ function setup() {
 	Ctx.transparency = Els.transparency.getContext('2d');
 	Ctx.overlay = Els.overlay.getContext('2d');
 
-	Ctx.overlay.globalAlpha = 0.3;
-
 	// brush
 	Tool = "brush";
 	Brush.color = Els.colorWell.value; // default color
@@ -304,7 +302,8 @@ function saveArtSelection() {
 		saving = {}; // ready for startPos and finishPos to be saved, in the format of an object with row and col parameters
 
 		// fill in overlay canvas
-		Ctx.overlay.fillRect(0, 0, 512, 512);
+		Ctx.overlay.globalAlpha = 0.3;
+		Ctx.overlay.fillRect(0, 0, Els.overlay.width, Els.overlay.height);
 	}
 }
 
@@ -341,7 +340,7 @@ function closeSavedArt() {
 		Els.savedImageWrapper.hidden = true;
 
 		// clear overlay canavs
-		Ctx.overlay.clearRect(0, 0, 512, 512);
+		Ctx.overlay.clearRect(0, 0, Els.overlay.width, Els.overlay.height);
 	}
 }
 
@@ -624,8 +623,8 @@ function paint(event) {
 			}
 			else {
 				// change display on overlay canvas to show currently saved area
-				Ctx.overlay.clearRect(0, 0, 512, 512);
-				Ctx.overlay.fillRect(0, 0, 512, 512);
+				Ctx.overlay.clearRect(0, 0, Els.overlay.width, Els.overlay.height);
+				Ctx.overlay.fillRect(0, 0, Els.overlay.width, Els.overlay.height);
 				// code used to find position and width is same as the code in mouseUp
 				let startPos = {
 					col: Math.min(saving.startPos.col, position.col),
