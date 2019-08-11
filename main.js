@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.2";
+const EditorVersion = "0.5.3";
 
 //
 // Setup
@@ -608,8 +608,8 @@ function paint(event) {
 	if (mouseIsDown) {
 		// find cursor row and column
 		let position = findTileAtMouse(event, Brush.size);
-		// make sure that last tile painted is not the current tile
-		if (position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row) {
+		// make sure that last tile painted is not the current tile, and that tile is on canvas
+		if ((position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row) && tileIsOnCanvas(position, Brush.size)) {
 
 			// only paint when the image is not being saved and a saved image is not shown
 			if (saving === false) {
@@ -852,6 +852,7 @@ function resizeCanvas(width, height) {
 		// resize canvases
 		Els.editor.width = width;
 		Els.transparency.width = width;
+		Els.overlay.width = width;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
 
@@ -864,6 +865,7 @@ function resizeCanvas(width, height) {
 		// resize canvases
 		Els.editor.height = height;
 		Els.transparency.height = height;
+		Els.overlay.height = height;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
 
