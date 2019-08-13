@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.3";
+const EditorVersion = "0.5.4";
 
 //
 // Setup
@@ -163,6 +163,8 @@ var redoArray = []; // array of future canvas state ImageDatas (added to by undo
 var afterMetadataClose; // set to a function that should be called after metadata is closed
 
 var previousPaintedTile = {}; // set to the tile that was last painted (row and col)
+
+var texturedTiles = []; // records textured tiles and their colors at the start of each fill, to make sure texturing size is even across fill
 
 //
 // Event listener functions
@@ -651,9 +653,40 @@ function paint(event) {
 // sets a tile and renders this change onto the editor canvas
 // position is from findTile functions
 function setTile(position, size) {
+	// set color
 	if (Els.texturerCheckbox.checked) {
 		// texturer
-		Ctx.editor.fillStyle = textureColor(Brush.color, Els.texturerDepth.value);
+		if (Tool !== "fill" || size >= 16) {
+			Ctx.editor.fillStyle = textureColor(Brush.color, Els.texturerDepth.value);
+		}
+		else {
+			// fill tool with size < 16
+			// texturing size should be even throughout no matter what brush size is
+
+			// convert position from small brush size to normal
+			let sizeFactor = size/ImageResolution;
+			let indexX = Math.floor(position.col * sizeFactor);
+			let indexY = Math.floor(position.row * sizeFactor);
+
+			// check if last textured tile has been textured before this fill
+			let foundTile = texturedTiles.find(tile => tile.position.x === indexX && tile.position.y === indexY);
+			if (foundTile !== undefined) {
+				// has been textured before, thus do same color
+				Ctx.editor.fillStyle = foundTile.color;
+			}
+			else {
+				// different one, pick a new texture color
+				Ctx.editor.fillStyle = textureColor(Brush.color, Els.texturerDepth.value);
+				// record color for future tiles filled by this fill
+				texturedTiles.push({
+					position: {
+						x: indexX,
+						y: indexY
+					},
+					color: Ctx.editor.fillStyle
+				});
+			}
+		}
 	}
 	else {
 		// no texturer
@@ -671,14 +704,23 @@ function setTile(position, size) {
 // position passed ni is with resolution 4
 function fillStart(position) {
 	let colorBeingFilled = getTile(position, 4); // all tiles of this color within a boundary will be filled
+	if ((colorBeingFilled !== Brush.color && Tool === "fill") || (colorBeingFilled !== undefined && Tool === "eraserFill")) {
+		// not trying to fill color that is already there
 
-	// calculate less accurate fill position (since filling happens with size 16)
-	let fillPosition = {
-		col: Math.floor(position.col/4),
-		row: Math.floor(position.row/4)
-	};
+		// calculate less accurate fill position (since filling happens with size 16)
+		let fillPosition = {
+			col: Math.floor(position.col/4),
+			row: Math.floor(position.row/4)
+		};
 
-	fill(fillPosition, undefined, colorBeingFilled, 16);
+		if (Els.texturerCheckbox.checked) {
+			// texturing will occur in fill
+			// to ensure size of texturing remains constant, textured tiles of size 16 are saved
+			texturedTiles = [];
+		}
+
+		fill(fillPosition, undefined, colorBeingFilled, 16);
+	}
 }
 
 // recursion function for fillStart (should only be called by fillStart)
