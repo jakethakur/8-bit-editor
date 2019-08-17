@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.4";
+const EditorVersion = "0.5.5";
 
 //
 // Setup
@@ -704,7 +704,7 @@ function setTile(position, size) {
 // position passed ni is with resolution 4
 function fillStart(position) {
 	let colorBeingFilled = getTile(position, 4); // all tiles of this color within a boundary will be filled
-	if ((colorBeingFilled !== Brush.color && Tool === "fill") || (colorBeingFilled !== undefined && Tool === "eraserFill")) {
+	if ((colorBeingFilled !== Brush.color && Tool === "fill") || Els.texturerCheckbox.checked || (colorBeingFilled !== undefined && Tool === "eraserFill")) {
 		// not trying to fill color that is already there
 
 		// calculate less accurate fill position (since filling happens with size 16)
