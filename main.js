@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.5";
+const EditorVersion = "0.5.6";
 
 //
 // Setup
@@ -42,6 +42,13 @@ function setup() {
 	// upload JSON file input
 	Els.artInput = document.querySelector("#artInput");
 
+	// tool radio button elements
+	Els.toolBrush = document.querySelector("#toolBrush");
+	Els.toolFill = document.querySelector("#toolFill");
+	Els.toolEraser = document.querySelector("#toolEraser");
+	Els.toolEraserFill = document.querySelector("#toolEraserFill");
+	Els.toolColorPicker = document.querySelector("#toolColorPicker");
+
 
 
 	// canvas context
@@ -71,6 +78,73 @@ function setup() {
 	Els.overlay.addEventListener("mousedown", mouseDown); // mouse set to down
 	Els.overlay.addEventListener("mouseup", mouseUp); // mouse set to up
 	Els.overlay.addEventListener("mouseout", mouseUp); // also set mouse to up when user leaves the canvas with mouse
+
+	// hotkeys
+	document.addEventListener("keydown", function (event) {
+		switch (event.key) {
+			case "z":
+	        	// undo
+				if (event.ctrlKey) {
+					undo();
+				}
+				break;
+
+			case "y":
+	        	// redo
+				if (event.ctrlKey) {
+					redo();
+				}
+				break;
+
+			case "s":
+				// save
+				if (event.ctrlKey) {
+					if (event.altKey) {
+						// selection
+						saveArtSelection();
+					}
+					else {
+						// whole thing
+						saveArt(Els.editor);
+					}
+					// avoid it being
+					event.preventDefault();
+				}
+				break;
+
+			// tools
+
+			case "1":
+	        	// brush
+				Els.toolBrush.checked = true;
+				break;
+
+			case "2":
+	        	// fill
+				Els.toolFill.checked = true;
+				break;
+
+			case "3":
+	        	// eraser
+				Els.toolEraser.checked = true;
+				break;
+
+			case "4":
+	        	// eraser fill
+				Els.toolEraserFill.checked = true;
+				break;
+
+			case "5":
+	        	// color picker
+				Els.toolColorPicker.checked = true;
+				break;
+
+			case "6":
+	        	// texturer
+				Els.texturerCheckbox.checked = !Els.texturerCheckbox.checked;
+				break;
+		}
+	});
 }
 
 //
