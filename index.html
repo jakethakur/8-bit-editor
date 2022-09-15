@@ -11,6 +11,7 @@
 
 		<div id="canvasWrapper">
 			<canvas id="transparency" width="512" height="512"></canvas>
+			<canvas id="template" width="512" height="512"></canvas>
 			<canvas id="editor" width="512" height="512"></canvas>
 			<canvas id="overlay" width="512" height="512"></canvas> <!-- used for save selection etc. -->
 		</div>
@@ -50,7 +51,7 @@
 				<input id="toolEraserFill" type="radio" name="tool" value="eraserFill"> Eraser Fill<br>
 				<input id="toolColorPicker" type="radio" name="tool" value="colorPicker"> Color Picker<br><br>
 				<input type="checkbox" id="texturerCheckbox"> Texturer &nbsp;
-				<input type="number" id="texturerDepth" style="width: 40px" min="1" value="5" max="15"> Depth<br>
+				<input type="number" id="texturerDepth" style="width: 40px" min="1" value="15" max="30"> Depth<br>
 			</div>
 
 			<div id="canvasSettingsWrapper">
@@ -58,6 +59,16 @@
 				<input type="button" id="clearAll" value="Clear canvas" onclick="clearAll()">
 				<input type="button" id="setDimensions" value="Set canvas dimensions" onclick="setDimensions()">
 				<input type="button" id="resetCanvas" value="Reset canvas" onclick="resetCanvas()">
+			</div>
+
+			<div id="templateWrapper">
+				<h3>Template (<em class="new">New! </em>)</h3>
+				<input type="button" value="Upload template" onclick="Els.uploadTemplateWrapper.hidden = false">
+				<input type="button" value="Clear template" onclick="clearTemplate()">
+				<br><br><div>
+				<input type="range" id="templateTransparency" name="templateTransparency" oninput="templateTransparencyUpdate(this.value)" min="0" max="10">
+				<label for="templateTransparency">Template transparency</label>
+				</div>
 			</div>
 
 			<div id="exportWrapper">
@@ -125,6 +136,28 @@
 		<input type="file" id="artInput">
 
 		<input type="button" id="confirmLoadArtJSON" value="Upload!" onclick="readUploadedFile()">
+	</div>
+
+	<div class="saveWrapper" id="uploadTemplateWrapper" hidden> <!-- out of document flow - placed on top -->
+		<!-- shown when uploading a template -->
+
+		<span class="closeButton" id="closeUploadTemplate" onclick="Els.uploadTemplateWrapper.hidden = true">✕</span> <!-- close button -->
+
+		<h1>Upload an image to use as template!</h1>
+
+		<input type="file" id="templateInput">
+
+		<input type="button" id="confirmUploadTemplate" value="Confirm" onclick="Els.uploadTemplateWrapper.hidden = true">
+	</div>
+
+	<div class="saveWrapper" id="updateWrapper">
+		<span class="closeButton" id="closeUpdateMsg" onclick="Els.updateWrapper.hidden = true">✕</span> <!-- close button -->
+		<h3>Updates 15/09/2022</h3>
+		<ul class="updateList">
+			<li class="updateMsg"><em class="new">NEW:</em> Set a background as a template!</li>
+			<li class="updateMsg">Texturing depth now uses a different scale to allow for greater precision</li>
+		</ul>
+		<p>Thank you for using the editor <3</p>
 	</div>
 
 

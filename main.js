@@ -1,4 +1,4 @@
-const EditorVersion = "0.5.6";
+const EditorVersion = "0.6.0";
 
 //
 // Setup
@@ -15,12 +15,15 @@ function setup() {
 	Els.transparency = document.querySelector("#transparency"); // transparency canvas
 	Els.overlay = document.querySelector("#overlay"); // overlay canvas (where save selection darkening is drawn)
 	Els.saveCanvas = document.querySelector("#saveCanvas"); // image save canvas (always hidden)
+	Els.template = document.querySelector("#template"); // template canvas
 
 	// hidden elements (shown when a certain menu is opened)
 	Els.savedImageWrapper = document.querySelector("#savedImageWrapper"); // save art wrapper (hidden unless saved art is shown)
 	Els.loadArtLocalWrapper = document.querySelector("#loadArtLocalWrapper"); // load art wrapper (hidden until load art to local storage)
 	Els.metadataWrapper = document.querySelector("#metadataWrapper"); // metadata wrapper (hidden until art metadata is changed)
 	Els.loadArtJSONWrapper = document.querySelector("#loadArtJSONWrapper"); // file upload screen
+	Els.updateWrapper = document.querySelector("#updateWrapper"); // load art wrapper (hidden until load art to local storage)
+	Els.uploadTemplateWrapper = document.querySelector("#uploadTemplateWrapper"); // file upload screen
 
 	// settings
 	Els.toolButtons = document.getElementsByName("tool"); // tool setting radio buttons
@@ -31,6 +34,11 @@ function setup() {
 	// texturer
 	Els.texturerCheckbox = document.querySelector("#texturerCheckbox"); // on or off
 	Els.texturerDepth = document.querySelector("#texturerDepth"); // number input - amount to texture by
+
+	// template
+	Els.templateInput = document.querySelector("#templateInput");
+	Els.templateInput.addEventListener('change', uploadTemplate, false);
+	Els.templateTransparency = document.querySelector("#templateTransparency");
 
 	// metadata inputs
 	Els.artNameInput = document.querySelector("#artNameInput"); // art name
@@ -55,6 +63,7 @@ function setup() {
 	Ctx.editor = Els.editor.getContext('2d');
 	Ctx.transparency = Els.transparency.getContext('2d');
 	Ctx.overlay = Els.overlay.getContext('2d');
+	Ctx.template = Els.template.getContext('2d');
 
 	// brush
 	Tool = "brush";
@@ -968,6 +977,7 @@ function resizeCanvas(width, height) {
 		Els.editor.width = width;
 		Els.transparency.width = width;
 		Els.overlay.width = width;
+		Els.template.width = width;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
 
@@ -981,6 +991,7 @@ function resizeCanvas(width, height) {
 		Els.editor.height = height;
 		Els.transparency.height = height;
 		Els.overlay.height = height;
+		Els.template.height = height;
 		// no need for saveCanvas to be resized - it is resized anyway whenever it is used to selection size
 	}
 
@@ -999,7 +1010,7 @@ function randomNum (minimum, maximum) {
 
 // alter a color's hex code
 // color should start with #
-// depth = how much to alter it by (scale from 1 to 10)
+// depth = how much to alter it by (scale from 1 to 15)
 function textureColor(color, depth) {
 	// split into decimal rgb components
 	let r = parseInt(color.substring(1, 3), 16);
@@ -1007,7 +1018,7 @@ function textureColor(color, depth) {
 	let b = parseInt(color.substring(5), 16);
 
 	// texture colors
-	let random = randomNum(depth * -5, depth * 5); // textures all colors by the same amount
+	let random = randomNum(depth * -1, depth * 1); // textures all colors by the same amount
 	r = Math.max(Math.min(r + random, 255), 0);
 	g = Math.max(Math.min(g + random, 255), 0);
 	b = Math.max(Math.min(b + random, 255), 0);
@@ -1670,4 +1681,32 @@ function getDate() {
 	dateString += mins;
 
 	return dateString;
+}
+
+//
+// Template canvas
+//
+
+function clearTemplate () {
+	Ctx.template.clearRect(0, 0, Els.template.width, Els.template.height);
+}
+
+// called by event listener of template image upload
+function uploadTemplate (e) {
+	// ty to https://stackoverflow.com/a/10906961/9713957
+	let reader = new FileReader();
+    reader.onload = function(event) {
+        let img = new Image();
+        img.onload = function() {
+            Ctx.template.drawImage(img, 0, 0);
+        }
+        img.src = event.target.result;
+    }
+    reader.readAsDataURL(e.target.files[0]);
+}
+
+// called by event listener of template transparency update
+// param is from 0 to 10 inc.
+function templateTransparencyUpdate (transparency) {
+	Els.template.style.opacity = transparency/10;
 }

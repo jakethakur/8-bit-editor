@@ -14,23 +14,6 @@ body {
 	margin: 10px;
 }
 
-canvas {
-	border: 1px solid black;
-}
-
-#transparency {
-	position: absolute; /* positioned beneath editor canvas */
-	top: 18px;
-	left: 18px;
-	z-index: -1; /* appears below editor canvas */
-}
-
-#overlay {
-	position: absolute; /* positioned on top of editor canvas */
-	top: 18px;
-	left: 18px;
-}
-
 #settingWrapper {
 	border: 1px solid black;
 	padding: 10px;
@@ -39,6 +22,37 @@ canvas {
 #settingWrapper > * {
 	/* everything inside settings */
 	margin: 5px;
+}
+
+
+#loadArtLocalWrapper {
+	padding-right: 70px;
+}
+
+/* canvases */
+
+canvas {
+	border: 1px solid black;
+}
+
+#transparency {
+	position: absolute; /* positioned beneath editor canvas */
+	top: 18px;
+	left: 18px;
+	z-index: -2; /* appears below editor canvas and template canvas */
+}
+
+#overlay {
+	position: absolute; /* positioned on top of editor canvas */
+	top: 18px;
+	left: 18px;
+}
+
+#template {
+	position: absolute; /* positioned on top of editor canvas */
+	top: 18px;
+	left: 18px;
+	z-index: -1; /* appears below editor canvas */
 }
 
 
@@ -53,6 +67,7 @@ canvas {
 	background-color: white;
 	padding: 5px;
 }
+
 
 /* art delete button */
 .artDeleteButton {
@@ -73,4 +88,10 @@ canvas {
 
     top: -15px;
     right: -15px;
+}
+
+/* new stuff :) */
+.new {
+    color: red;
+	font-weight: 900;
 }
