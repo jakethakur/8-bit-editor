@@ -1689,6 +1689,8 @@ function getDate() {
 
 function clearTemplate () {
 	Ctx.template.clearRect(0, 0, Els.template.width, Els.template.height);
+
+	Els.templateInput.value = '';
 }
 
 // called by event listener of template image upload
