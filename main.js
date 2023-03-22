@@ -34,6 +34,9 @@ function setup() {
 	// texturer
 	Els.texturerCheckbox = document.querySelector("#texturerCheckbox"); // on or off
 	Els.texturerDepth = document.querySelector("#texturerDepth"); // number input - amount to texture by
+	// symmetry
+	Els.verticalSymCheckbox = document.querySelector("#verticalSymCheckbox"); // on or off
+	Els.horizontalSymCheckbox = document.querySelector("#horizontalSymCheckbox"); // on or off
 
 	// template
 	Els.templateInput = document.querySelector("#templateInput");
@@ -246,6 +249,7 @@ var redoArray = []; // array of future canvas state ImageDatas (added to by undo
 var afterMetadataClose; // set to a function that should be called after metadata is closed
 
 var previousPaintedTile = {}; // set to the tile that was last painted (row and col)
+var previousPaintedColor = undefined; // set to the Color of the tile that was last painted
 
 var texturedTiles = []; // records textured tiles and their colors at the start of each fill, to make sure texturing size is even across fill
 
@@ -693,7 +697,7 @@ function paint(event) {
 		// find cursor row and column
 		let position = findTileAtMouse(event, Brush.size);
 		// make sure that last tile painted is not the current tile, and that tile is on canvas
-		if ((position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row) && tileIsOnCanvas(position, Brush.size)) {
+		if ((position.col !== previousPaintedTile.col || position.row !== previousPaintedTile.row || (Tool === "eraser" && previousPaintedColor !== "eraser") || (Tool !== "eraser" && previousPaintedColor !== Brush.color)) && tileIsOnCanvas(position, Brush.size)) {
 
 			// only paint when the image is not being saved and a saved image is not shown
 			if (saving === false) {
@@ -704,6 +708,45 @@ function paint(event) {
 				else if (Tool === "eraser") {
 					// erase the tile
 					eraseTile(position, Brush.size);
+				}
+
+				// if there is reflection, rerun setTile
+				let rect = Els.editor.getBoundingClientRect();
+				if (Els.horizontalSymCheckbox.checked) {
+					let newEvent = {};
+					newEvent.clientX = event.x;
+					newEvent.clientY = Els.editor.height - event.y + 2*rect.top;
+					let newPosition = findTileAtMouse(newEvent, Brush.size);
+					if (Tool === "brush") {
+						setTile(newPosition, Brush.size);
+					}
+					else if (Tool === "eraser") {
+						eraseTile(newPosition, Brush.size);
+					}
+				}
+				if (Els.verticalSymCheckbox.checked) {
+					let newEvent = {};
+					newEvent.clientX = Els.editor.width - event.x + 2*rect.left;
+					newEvent.clientY = event.y;
+					let newPosition = findTileAtMouse(newEvent, Brush.size);
+					if (Tool === "brush") {
+						setTile(newPosition, Brush.size);
+					}
+					else if (Tool === "eraser") {
+						eraseTile(newPosition, Brush.size);
+					}
+				}
+				if (Els.verticalSymCheckbox.checked && Els.horizontalSymCheckbox.checked) { // 4-way symmetry
+					let newEvent = {};
+					newEvent.clientX = Els.editor.width - event.x + 2*rect.left;
+					newEvent.clientY = Els.editor.height - event.y + 2*rect.top;
+					let newPosition = findTileAtMouse(newEvent, Brush.size);
+					if (Tool === "brush") {
+						setTile(newPosition, Brush.size);
+					}
+					else if (Tool === "eraser") {
+						eraseTile(newPosition, Brush.size);
+					}
 				}
 			}
 			else {
@@ -729,6 +772,12 @@ function paint(event) {
 			}
 
 			previousPaintedTile = position;
+			if (Tool === "eraser") {
+				previousPaintedColor = "eraser";
+			}
+			else {
+				previousPaintedColor = Brush.color;
+			}
 		}
 	}
 }

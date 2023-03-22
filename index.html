@@ -53,7 +53,9 @@
 				<input id="toolEraserFill" type="radio" name="tool" value="eraserFill"> Eraser Fill<br>
 				<input id="toolColorPicker" type="radio" name="tool" value="colorPicker"> Color Picker<br><br>
 				<input type="checkbox" id="texturerCheckbox"> Texturer &nbsp;
-				<input type="number" id="texturerDepth" style="width: 40px" min="1" value="15" max="30"> Depth<br>
+				<input type="number" id="texturerDepth" style="width: 40px" min="1" value="15" max="30"> Depth<br><br>
+				<input type="checkbox" id="verticalSymCheckbox"> Vertical Symmetry (<em class="new">New! </em>)<br>
+				<input type="checkbox" id="horizontalSymCheckbox"> Horizontal Symmetry (<em class="new">New! </em>)
 			</div>
 
 			<div id="canvasSettingsWrapper">
@@ -64,7 +66,7 @@
 			</div>
 
 			<div id="templateWrapper">
-				<h3>Template (<em class="new">New! </em>)</h3>
+				<h3>Template</h3>
 				<input type="button" value="Upload template" onclick="Els.uploadTemplateWrapper.hidden = false">
 				<input type="button" value="Clear template" onclick="clearTemplate()">
 				<br><br><div>
